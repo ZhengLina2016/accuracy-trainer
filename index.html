@@ -1,0 +1,1271 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>85%正确率自适应训练系统（V1）</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --primary: #0f172a;
+      --accent: #3b82f6;
+      --ok: #10b981;
+      --warn: #f59e0b;
+      --error: #ef4444;
+      --radius: 12px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container{ max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+    
+    /* 顶部导航与进度 */
+    .steps-nav{
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .step-item{
+      flex: 1;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .step-item::after{
+      content: "";
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      width: 100%;
+      height: 2px;
+      background: var(--border);
+      z-index: -1;
+    }
+    .step-item:last-child::after{ display: none; }
+    .step-dot{
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--border);
+      margin: 0 auto 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all .3s;
+    }
+    .step-item.active .step-dot{
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .step-item.done .step-dot{
+      border-color: var(--ok);
+      background: var(--ok);
+      color: #fff;
+    }
+    .step-label{ font-size: 13px; color: var(--muted); font-weight: 500; }
+    .step-item.active .step-label{ color: var(--text); }
+
+    .progress-section{
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+    .progress-header{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .progress-title{ font-size: 14px; font-weight: 600; color: var(--text); }
+    .progress-stats{ font-size: 12px; color: var(--muted); }
+    .progress-bar-bg{
+      height: 8px;
+      background: #f1f5f9;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill{
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* 时间线 */
+    .timeline-container{
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #fff;
+      overflow: hidden;
+    }
+    .timeline-header{
+      padding: 12px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .timeline-content{
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0;
+      transition: all 0.3s;
+    }
+    .timeline-content.collapsed{ max-height: 0; }
+    .timeline-item{
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .timeline-item:last-child{ border-bottom: none; }
+    .timeline-time{ color: var(--muted); font-family: monospace; flex-shrink: 0; }
+    .timeline-msg{ flex: 1; word-break: break-all; }
+    .timeline-item.success{ border-left: 4px solid var(--ok); background: #f0fdf4; }
+    .timeline-item.warn{ border-left: 4px solid var(--warn); background: #fffbeb; }
+    .timeline-item.error{ border-left: 4px solid var(--error); background: #fef2f2; }
+    .timeline-item.info{ border-left: 4px solid var(--border); }
+
+    /* 通用卡片与按钮 */
+    .card{
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+    h2{ margin: 0 0 12px; font-size: 20px; font-weight: 700; color: var(--primary); }
+    .meta{ color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    
+    button{
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--primary);
+      color: #fff;
+    }
+    button:hover{ opacity: 0.9; transform: translateY(-1px); }
+    button.secondary{
+      background: #fff;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    button.secondary:hover{ background: #f8fafc; border-color: #cbd5e1; }
+    
+    textarea, input[type="text"], input[type="password"]{
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    textarea:focus, input:focus{
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .pill{
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    
+    .divider{ height: 1px; background: var(--border); margin: 24px 0; }
+    .grid{ display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; }
+    @media (max-width: 850px){ .grid{ grid-template-columns: 1fr; } }
+    .warn{ color: var(--warn); }
+    .ok{ color: var(--ok); }
+    .muted{ color: var(--muted); }
+
+    /* 全局加载遮罩 */
+    #globalLoading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(4px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: all 0.3s;
+    }
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-weight: 600; color: var(--text); }
+
+    /* 题目解析样式 */
+    .explanation-box {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+      display: none;
+      font-size: 13px;
+      animation: fadeIn 0.3s ease-out;
+    }
+    .explanation-box.correct { border-left-color: var(--ok); background: #f0fdf4; }
+    .explanation-box.wrong { border-left-color: var(--error); background: #fef2f2; }
+    .explanation-title { font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .explanation-content { white-space: pre-wrap; color: var(--text); line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div id="globalLoading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="globalLoadingText">正在处理...</div>
+  </div>
+  <div class="container">
+  <h2>85% 训练系统</h2>
+  
+  <div class="steps-nav">
+    <div class="step-item" id="step1">
+      <div class="step-dot">1</div>
+      <div class="step-label">设置密钥</div>
+    </div>
+    <div class="step-item" id="step2">
+      <div class="step-dot">2</div>
+      <div class="step-label">准备笔记</div>
+    </div>
+    <div class="step-item" id="step3">
+      <div class="step-dot">3</div>
+      <div class="step-label">深度训练</div>
+    </div>
+    <div class="step-item" id="step4">
+      <div class="step-dot">4</div>
+      <div class="step-label">达成目标</div>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-header">
+      <div class="progress-title">达标进度 (目标 85%)</div>
+      <div class="progress-stats">
+        当前轮次: <span id="round">-</span> | 
+        累计正确率: <span id="cumAcc" style="font-weight: 700; color: var(--accent);">-</span> | 
+        题量: <span id="totalQ">-</span>
+      </div>
+    </div>
+    <div class="progress-bar-bg">
+      <div id="targetProgressBar" class="progress-bar-fill"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 12px;">
+      <div class="progress-stats">上一轮正确率: <span id="acc">-</span></div>
+      <div class="row">
+        <button id="exportBtn" class="secondary" style="padding: 4px 10px; font-size: 12px;">导出报告</button>
+        <button id="resetBtn" class="secondary" style="padding: 4px 10px; font-size: 12px;">重置会话</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="qstem">配置 API Key</div>
+      <div class="meta" style="margin-bottom: 12px;">密钥仅保存在您的浏览器本地。</div>
+      <div id="keyEditor" class="row" style="gap:8px;">
+        <input id="apiKey" type="password" placeholder="请输入 DeepSeek API Key" style="flex:1;">
+        <button id="saveKeyBtn">保存</button>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <span class="small" id="keyState"></span>
+        <button id="editKeyBtn" class="secondary" style="display:none; padding: 4px 10px; font-size: 12px;">修改</button>
+        <button id="clearKeyBtn" class="secondary" style="padding: 4px 10px; font-size: 12px;">清除</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="qstem">学习资料</div>
+      <div class="meta" style="margin-bottom: 12px;">粘贴笔记、上传文件或直接粘贴截图 (Ctrl+V)。</div>
+      <div class="row" style="margin:8px 0; gap:8px;">
+        <button id="uploadBtn" class="secondary">上传文件 (Docx/Txt/图片)</button>
+        <input id="fileInput" type="file" accept=".doc,.docx,.txt,image/*" multiple style="display:none;">
+        <button id="clearNotesBtn" class="secondary">清空</button>
+        <span class="small" id="notesStat"></span>
+      </div>
+      <textarea id="notes" placeholder="粘贴您的笔记内容、章节要点或已学知识清单..." style="min-height: 200px;"></textarea>
+      <div class="row" style="margin-top:16px;">
+        <button id="startBtn" style="width: 100%; padding: 12px;">开始自适应训练</button>
+        <span class="small warn" id="startHint" style="width: 100%; text-align: center; margin-top: 8px;"></span>
+      </div>
+
+      <div id="progressWrap" style="display:none; margin:12px 0;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 4px;">
+          <span id="progressLabel" style="color: var(--muted);">加载中…</span>
+          <span id="progressPct" style="font-weight: 600; color: var(--accent);">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progressBar" class="progress-bar-fill" style="background: var(--accent);"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="qstem" style="margin-bottom: 12px;">系统事件流</div>
+      <div class="timeline-container">
+        <div class="timeline-header" onclick="document.getElementById('timelineContent').classList.toggle('collapsed')">
+          <div style="font-size: 13px; font-weight: 600; color: var(--muted);">查看历史状态</div>
+          <div style="font-size: 12px; color: var(--muted);">点击展开/折叠</div>
+        </div>
+        <div id="timelineContent" class="timeline-content">
+          <!-- Timeline items will be injected here -->
+          <div class="timeline-item info">
+            <div class="timeline-time">--:--:--</div>
+            <div class="timeline-msg">等待系统初始化...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="qstem">进度趋势</div>
+      <canvas id="chart" height="140"></canvas>
+      <div class="divider"></div>
+      <div class="qstem">易错点聚合</div>
+      <div id="weakness" style="font-size: 13px; line-height: 1.6; color: var(--muted); background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); min-height: 100px; white-space: pre-wrap;">暂无数据。</div>
+    </div>
+  </div>
+
+  <div id="quizCard" class="card" style="display:none; border-top: 4px solid var(--accent);">
+    <div class="row" style="justify-content: space-between; margin-bottom: 16px;">
+      <div class="qstem" style="margin:0;">本轮题目</div>
+      <div class="row" style="gap: 8px;">
+        <button id="prevRoundBtn" class="secondary" style="display:none;">上一轮</button>
+        <button id="submitBtn">提交并继续</button>
+        <button id="toggleReviewBtn" class="secondary" style="display:none;">查看解析</button>
+      </div>
+    </div>
+    <div class="meta" id="quizMeta"></div>
+    
+    <div id="quiz"></div>
+  </div>
+
+</div>
+<script>
+  let API_BASE = (location.protocol === "http:" || location.protocol === "https:")
+    ? location.origin
+    : "http://127.0.0.1:8787";
+  const API_PORT_CANDIDATES = [8787, 8788, 8789, 8790, 8791, 8792, 8793, 8794, 8795, 8796];
+  const apiCandidates = () => {
+    if (location.protocol === "http:" || location.protocol === "https:") return [location.origin];
+    return API_PORT_CANDIDATES.map(p => `http://127.0.0.1:${p}`);
+  };
+
+  let sessionId = localStorage.getItem("trainer_session_id") || null;
+  let lastQuiz = null;
+  let lastNextQuiz = null;
+  let lastResults = null;
+  let isShowingAnswers = false;
+  let currentViewRound = null; // 用于跟踪当前显示的轮次
+  let currentActiveRound = null; // 用于跟踪当前进行到的最新轮次
+  let history = []; // {round, accuracy}
+  let chart = null;
+  let progressTimer = null;
+  let progressValue = 0;
+  const NOTES_DRAFT_KEY = "trainer_notes_draft";
+  let notesSaveTimer = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  function showLoading(msg) {
+    const el = $("globalLoading");
+    const txt = $("globalLoadingText");
+    if (el && txt) {
+      txt.textContent = msg || "正在处理...";
+      el.style.display = "flex";
+    }
+  }
+
+  function hideLoading() {
+    const el = $("globalLoading");
+    if (el) el.style.display = "none";
+  }
+
+  function logEvent(msg, type = 'info') {
+    const content = $("timelineContent");
+    const item = document.createElement("div");
+    item.className = `timeline-item ${type}`;
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
+                    now.getMinutes().toString().padStart(2, '0') + ':' + 
+                    now.getSeconds().toString().padStart(2, '0');
+    item.innerHTML = `
+      <div class="timeline-time">${timeStr}</div>
+      <div class="timeline-msg">${msg}</div>
+    `;
+    content.prepend(item);
+    // Auto-expand if collapsed and it's a new important event
+    if (type !== 'info') content.classList.remove('collapsed');
+  }
+
+  function updateStep(stepIdx, status) {
+    const steps = ['step1', 'step2', 'step3', 'step4'];
+    steps.forEach((id, idx) => {
+      const el = $(id);
+      if (!el) return;
+      if (idx < stepIdx) {
+        el.className = 'step-item done';
+      } else if (idx === stepIdx) {
+        el.className = `step-item ${status}`; // status can be 'active'
+      } else {
+        el.className = 'step-item';
+      }
+    });
+  }
+
+  function setStatus(msg){ logEvent(msg); }
+  function setWeakness(msg){ $("weakness").textContent = msg; }
+  function updateNotesStat(){
+    const t = $("notes").value || "";
+    const chars = t.length;
+    const lines = t ? t.split(/\r?\n/).length : 0;
+    $("notesStat").textContent = chars ? `已输入 ${chars} 字符 / ${lines} 行` : "";
+  }
+  function scheduleSaveNotesDraft(){
+    if (notesSaveTimer) clearTimeout(notesSaveTimer);
+    notesSaveTimer = setTimeout(() => {
+      try{
+        const t = $("notes").value || "";
+        if (t.trim()) localStorage.setItem(NOTES_DRAFT_KEY, t);
+        else localStorage.removeItem(NOTES_DRAFT_KEY);
+      } catch {}
+    }, 350);
+  }
+
+  function startProgress(label = "加载中…") {
+    const wrap = $("progressWrap");
+    if (!wrap) return;
+    wrap.style.display = "block";
+    $("progressLabel").textContent = label;
+    progressValue = 5;
+    $("progressBar").style.width = progressValue + "%";
+    $("progressPct").textContent = progressValue + "%";
+
+    // 模拟进度：越到后面越慢，最多到 92% 停住等待真实完成
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = setInterval(() => {
+      const cap = 92;
+      if (progressValue >= cap) return;
+
+      const step =
+        progressValue < 30 ? 6 :
+        progressValue < 60 ? 4 :
+        progressValue < 80 ? 2 : 1;
+
+      progressValue = Math.min(cap, progressValue + step);
+      $("progressBar").style.width = progressValue + "%";
+      $("progressPct").textContent = progressValue + "%";
+    }, 200);
+  }
+
+  function finishProgress(ok = true) {
+    const wrap = $("progressWrap");
+    if (!wrap) return;
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = null;
+
+    progressValue = 100;
+    $("progressBar").style.width = "100%";
+    $("progressPct").textContent = "100%";
+
+    // 给用户一个“完成感”，再隐藏
+    setTimeout(() => {
+      wrap.style.display = "none";
+      $("progressBar").style.width = "0%";
+      $("progressPct").textContent = "0%";
+    }, ok ? 350 : 800);
+  }
+
+  function failProgress(msg) {
+    const wrap = $("progressWrap");
+    if (!wrap) return;
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = null;
+    $("progressLabel").textContent = msg || "加载失败";
+    $("progressBar").style.width = "100%";
+    $("progressPct").textContent = "×";
+    setTimeout(() => {
+      wrap.style.display = "none";
+      $("progressBar").style.width = "0%";
+      $("progressPct").textContent = "0%";
+    }, 1200);
+  }
+
+  function initChart(){
+    const ctx = $("chart");
+    chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{ label: "每轮正确率(%)", data: [] }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { min: 0, max: 100 } }
+      }
+    });
+  }
+
+  function updateChart(){
+    if (!chart) initChart();
+    chart.data.labels = history.map(h => `R${h.round}`);
+    chart.data.datasets[0].data = history.map(h => h.accuracy);
+    chart.update();
+  }
+
+  // V1 backend meta fields:
+  // { round, lastRoundAccuracy, totalAnswered, cumulativeAccuracy }
+  function setTopMeta(meta){
+    $("round").textContent = meta.round ?? "-";
+    currentActiveRound = meta.round;
+    const lastAcc = meta.lastRoundAccuracy;
+    $("acc").textContent = lastAcc != null ? `${Number(lastAcc).toFixed(1)}%` : "-";
+    $("totalQ").textContent = meta.totalAnswered ?? "-";
+    
+    const cumAcc = meta.cumulativeAccuracy != null ? Number(meta.cumulativeAccuracy) : 0;
+    $("cumAcc").textContent = meta.cumulativeAccuracy != null ? `${cumAcc.toFixed(1)}%` : "-";
+    
+    // Update Target Progress Bar (Target is 85%)
+    const progressPct = Math.min(100, (cumAcc / 85) * 100);
+    $("targetProgressBar").style.width = `${progressPct}%`;
+
+    // Update Steps
+    if (cumAcc >= 85) {
+      updateStep(3, 'done'); // All done
+    } else if (meta.round > 0) {
+      updateStep(2, 'active'); // Training
+    } else if ($("notes").value.length > 5) {
+      updateStep(2, 'active'); // Ready to start
+    } else if (getSavedKey()) {
+      updateStep(1, 'active'); // Key set, ready for notes
+    } else {
+      updateStep(0, 'active'); // Start with key
+    }
+  }
+
+  async function api(path, body, progressLabel){
+    startProgress(progressLabel || "加载中…");
+    try {
+      const res = await fetch(API_BASE + path, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body || {})
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        failProgress("请求失败");
+        throw new Error(t);
+      }
+      const data = await res.json();
+      finishProgress(true);
+      return data;
+    } catch (e) {
+      failProgress("请求失败");
+      throw e;
+    }
+  }
+
+  async function pingBackend(){
+    const candidates = apiCandidates();
+    for (const base of candidates) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 1200);
+      try{
+        const res = await fetch(base + "/api/ping", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: "{}",
+          signal: ctrl.signal
+        });
+        if (res.ok) {
+          API_BASE = base;
+          return true;
+        }
+      } catch {} finally {
+        clearTimeout(t);
+      }
+    }
+    return false;
+  }
+
+  function ensureSessionId(){
+    if (!sessionId){
+      // Prefer Web Crypto UUID (modern browsers)
+      sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (String(Date.now()) + "_" + Math.random().toString(16).slice(2));
+      localStorage.setItem("trainer_session_id", sessionId);
+    }
+    return sessionId;
+  }
+
+  function getSavedKey(){
+    return localStorage.getItem("trainer_deepseek_key") || "";
+  }
+
+  function setKeyUI(){
+    const k = getSavedKey();
+    if (k && k.length >= 10){
+      $("keyState").textContent = `Key 已保存（后四位：${k.slice(-4)}）`;
+      $("keyState").className = "small ok";
+      $("keyEditor").style.display = "none";
+      $("editKeyBtn").style.display = "inline-block";
+      $("apiKey").value = "";
+      updateStep(1, 'active');
+    } else {
+      $("keyState").textContent = "未保存 Key。";
+      $("keyState").className = "small warn";
+      $("keyEditor").style.display = "flex";
+      $("editKeyBtn").style.display = "none";
+      $("apiKey").value = "";
+      updateStep(0, 'active');
+    }
+  }
+
+  function setProgress(pct, label){
+    const wrap = $("progressWrap");
+    if (!wrap) return;
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = null;
+    wrap.style.display = "block";
+    if (label != null) $("progressLabel").textContent = label;
+    const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+    $("progressBar").style.width = p + "%";
+    $("progressPct").textContent = p + "%";
+  }
+
+  function appendToNotes(text, title){
+    const notesEl = $("notes");
+    const cur = notesEl.value || "";
+    const head = title ? `\n\n【${title}】\n` : "\n\n";
+    notesEl.value = cur.trim() ? (cur + head + text) : text;
+    updateNotesStat();
+    scheduleSaveNotesDraft();
+    notesEl.focus();
+  }
+
+  async function handleUploadedFiles(fileList){
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    showLoading(`正在上传并解析 ${files.length} 个文件...`);
+    try {
+      for (const f of files){
+        const name = f && f.name ? f.name : "未命名文件";
+        logEvent(`正在处理：${name}...`, "info");
+        try {
+          const formData = new FormData();
+          formData.append("file", f);
+          
+          const res = await fetch(API_BASE + "/api/upload", {
+            method: "POST",
+            body: formData
+          });
+          
+          if (!res.ok) throw new Error(await res.text());
+          
+          const data = await res.json();
+          if (data.text) {
+            appendToNotes(data.text, data.fileName);
+            logEvent(`已成功解析：${data.fileName}`, "success");
+          }
+        } catch (err) {
+          logEvent(`处理失败 (${name})：${err.message}`, "error");
+        }
+      }
+    } finally {
+      hideLoading();
+    }
+  }
+
+  // Handle clipboard paste for screenshots
+  document.addEventListener('paste', async (e) => {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+        const blob = item.getAsFile();
+        logEvent("检测到剪贴板图片，正在进行 OCR 识别...", "info");
+        showLoading("正在进行图片 OCR 识别...");
+        
+        try {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            try {
+              const base64Image = event.target.result;
+              const res = await fetch(API_BASE + "/api/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: base64Image })
+              });
+              
+              if (!res.ok) throw new Error(await res.text());
+              
+              const data = await res.json();
+              if (data.text) {
+                appendToNotes(data.text, "剪贴板截图");
+                logEvent("截图 OCR 识别成功", "success");
+              }
+            } catch (err) {
+              logEvent(`截图处理失败：${err.message}`, "error");
+            } finally {
+              hideLoading();
+            }
+          };
+          reader.readAsDataURL(blob);
+        } catch (err) {
+          logEvent(`截图读取失败：${err.message}`, "error");
+          hideLoading();
+        }
+      }
+    }
+  });
+
+  function renderQuiz(quiz, historicalResults = null){
+    lastQuiz = quiz;
+    currentViewRound = quiz.meta.round;
+    $("quizCard").style.display = "block";
+    $("quiz").innerHTML = "";
+    $("quizMeta").textContent = `第 ${quiz.meta.round} 轮 / ${quiz.questions.length} 题`;
+
+    // 控制“上一轮”按钮显示：当前轮次 > 1 且不是在看第一轮的历史
+    if (currentViewRound > 1) {
+      $("prevRoundBtn").style.display = "inline-block";
+    } else {
+      $("prevRoundBtn").style.display = "none";
+    }
+
+    // 如果是历史记录，或者是已经提交过的状态
+    const showAnswersNow = historicalResults !== null || isShowingAnswers;
+
+    for (let i=0;i<quiz.questions.length;i++){
+      const q = quiz.questions[i];
+      const div = document.createElement("div");
+      div.className = "card";
+      div.style.margin = "10px 0";
+      div.dataset.qid = q.id;
+
+      const stem = document.createElement("div");
+      stem.className = "qstem";
+      stem.textContent = `${i+1}. ${q.stem}`;
+      div.appendChild(stem);
+
+      if (q.type === "single"){
+        q.options.forEach((opt, idx) => {
+          const letter = String.fromCharCode(65+idx);
+          const row = document.createElement("div");
+          row.className = "opt";
+          row.innerHTML = `
+            <input type="radio" name="q_${q.id}" value="${letter}" id="${q.id}_${letter}" ${showAnswersNow ? 'disabled' : ''}>
+            <label for="${q.id}_${letter}"><b>${letter}.</b> ${escapeHtml(opt)}</label>
+          `;
+          div.appendChild(row);
+        });
+      } else if (q.type === "multi"){
+        q.options.forEach((opt, idx) => {
+          const letter = String.fromCharCode(65+idx);
+          const row = document.createElement("div");
+          row.className = "opt";
+          row.innerHTML = `
+            <input type="checkbox" name="q_${q.id}" value="${letter}" id="${q.id}_${letter}" ${showAnswersNow ? 'disabled' : ''}>
+            <label for="${q.id}_${letter}"><b>${letter}.</b> ${escapeHtml(opt)}</label>
+          `;
+          div.appendChild(row);
+        });
+        const hint = document.createElement("div");
+        hint.className = "small";
+        hint.textContent = "多选：可勾选多个选项。";
+        div.appendChild(hint);
+      } else if (q.type === "tf"){
+        const rowT = document.createElement("div");
+        rowT.className = "opt";
+        rowT.innerHTML = `
+          <input type="radio" name="q_${q.id}" value="T" id="${q.id}_T" ${showAnswersNow ? 'disabled' : ''}>
+          <label for="${q.id}_T"><b>T</b>（正确）</label>
+        `;
+        const rowF = document.createElement("div");
+        rowF.className = "opt";
+        rowF.innerHTML = `
+          <input type="radio" name="q_${q.id}" value="F" id="${q.id}_F" ${showAnswersNow ? 'disabled' : ''}>
+          <label for="${q.id}_F"><b>F</b>（错误）</label>
+        `;
+        div.appendChild(rowT);
+        div.appendChild(rowF);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.className = "short";
+        ta.placeholder = "简答：要点式、尽量简洁。";
+        ta.dataset.short = q.id;
+        if (showAnswersNow) ta.disabled = true;
+        div.appendChild(ta);
+      }
+
+      // 添加解析占位符
+      const expBox = document.createElement("div");
+      expBox.id = `exp_${q.id}`;
+      expBox.className = "explanation-box";
+      expBox.innerHTML = `
+        <div class="explanation-title">
+          <span class="exp-status"></span>
+          <span class="exp-answer"></span>
+        </div>
+        <div class="explanation-content"></div>
+      `;
+      div.appendChild(expBox);
+
+      // 如果需要显示答案
+      if (showAnswersNow) {
+        expBox.style.display = "block";
+        const res = historicalResults ? historicalResults.find(r => r.id === q.id) : null;
+        if (res) {
+          expBox.className = `explanation-box ${res.correct ? 'correct' : 'wrong'}`;
+          expBox.querySelector(".exp-status").textContent = res.correct ? "✅ 正确" : "❌ 错误";
+          expBox.querySelector(".exp-status").style.color = res.correct ? "var(--ok)" : "var(--error)";
+          expBox.querySelector(".exp-answer").textContent = `标准答案: ${res.correctAnswer}`;
+          expBox.querySelector(".explanation-content").textContent = res.briefRationale;
+        } else {
+          // 如果没有评分结果（比如新生成的题目），直接显示预置答案
+          expBox.className = `explanation-box`;
+          expBox.querySelector(".exp-answer").textContent = `标准答案: ${q.answer}`;
+          expBox.querySelector(".explanation-content").textContent = q.rationale;
+        }
+      }
+
+      $("quiz").appendChild(div);
+    }
+
+    if (showAnswersNow) {
+      $("submitBtn").textContent = "进入下一轮";
+      $("toggleReviewBtn").style.display = "none";
+    } else {
+      $("submitBtn").textContent = "提交本轮";
+      $("toggleReviewBtn").style.display = "none";
+    }
+
+    logEvent(`已显示第 ${quiz.meta.round} 轮题目，共 ${quiz.questions.length} 题。`, "info");
+    
+    // 自动跳转到题目区域
+    setTimeout(() => {
+      $("quizCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  function collectAnswers(){
+    const answers = [];
+    for (const q of lastQuiz.questions){
+      if (q.type === "single" || q.type === "tf"){
+        const picked = document.querySelector(`input[name="q_${q.id}"]:checked`);
+        answers.push({ id: q.id, answer: picked ? picked.value : "" });
+      } else if (q.type === "multi"){
+        const picked = Array.from(document.querySelectorAll(`input[name="q_${q.id}"]:checked`)).map(x => x.value);
+        answers.push({ id: q.id, answer: picked.sort().join("") }); // e.g. "ACD"
+      } else {
+        const ta = document.querySelector(`textarea[data-short="${q.id}"]`);
+        answers.push({ id: q.id, answer: ta ? ta.value.trim() : "" });
+      }
+    }
+    return answers;
+  }
+
+  async function refreshState(){
+    if (!sessionId) return;
+    try{
+      const data = await api("/api/state", { sessionId });
+      setTopMeta(data.meta);
+      history = data.history || [];
+      updateChart();
+      setWeakness(data.weaknessText || "暂无数据。");
+      isShowingAnswers = false;
+      if (data.lastQuiz) renderQuiz(data.lastQuiz);
+      logEvent("训练会话已恢复。", "success");
+    } catch(e){
+      console.warn("State recovery failed:", e);
+      if (e.message.includes("无效 sessionId")) {
+        localStorage.removeItem("trainer_session_id");
+        sessionId = null;
+        logEvent("旧会话已失效，请重新开始。", "warn");
+      } else {
+        logEvent("状态加载失败：" + e.message, "error");
+      }
+    }
+  }
+
+  $("saveKeyBtn").onclick = async () => { 
+    try { 
+      const k = $("apiKey").value.trim(); 
+      if (!k || k.length < 10) throw new Error("请输入有效的 DeepSeek API Key。"); 
+      localStorage.setItem("trainer_deepseek_key", k); 
+      ensureSessionId(); 
+      setKeyUI(); 
+      logEvent("API Key 已安全保存到本地。", "success"); 
+    } catch (e) { 
+      logEvent("保存 Key 失败：" + e.message, "error"); 
+    } 
+  };
+
+  $("clearKeyBtn").onclick = async () => {
+    localStorage.removeItem("trainer_deepseek_key");
+    $("apiKey").value = "";
+    setKeyUI();
+    logEvent("已清除本地保存的 API Key。", "warn");
+  };
+
+  $("editKeyBtn").onclick = async () => {
+    $("keyEditor").style.display = "flex";
+    $("editKeyBtn").style.display = "none";
+    $("apiKey").value = "";
+    $("apiKey").focus();
+    $("keyState").textContent = "请粘贴新的 Key 后点击保存。";
+    $("keyState").className = "small warn";
+  };
+
+  $("uploadBtn").onclick = async () => {
+    $("fileInput").click();
+  };
+
+  $("clearNotesBtn").onclick = async () => {
+    $("notes").value = "";
+    localStorage.removeItem(NOTES_DRAFT_KEY);
+    updateNotesStat();
+    logEvent("笔记已清空。", "warn");
+  };
+
+  $("fileInput").addEventListener("change", async (e) => {
+    try{
+      await handleUploadedFiles(e.target.files);
+    } catch (err){
+      failProgress("导入失败");
+      setStatus("导入失败：" + err.message);
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  $("notes").addEventListener("input", () => {
+    updateNotesStat();
+    scheduleSaveNotesDraft();
+  });
+
+  $("notes").addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    $("notes").classList.add("drop-hover");
+  });
+
+  $("notes").addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+
+  $("notes").addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    $("notes").classList.remove("drop-hover");
+  });
+
+  $("notes").addEventListener("drop", async (e) => {
+    e.preventDefault();
+    $("notes").classList.remove("drop-hover");
+    try{
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+        await handleUploadedFiles(e.dataTransfer.files);
+      }
+    } catch (err){
+      failProgress("导入失败");
+      setStatus("导入失败：" + err.message);
+    }
+  });
+
+  // --- Start ---
+  $("startBtn").onclick = async () => {
+    const notes = $("notes").value;
+    if (!notes || notes.trim().length < 5) {
+      logEvent("请先准备笔记内容（至少5个字符）。", "warn");
+      return;
+    }
+
+    $("startBtn").disabled = true;
+    logEvent("正在初始化训练引擎，请稍候...", "info");
+    try{
+      // 1) Ensure sessionId exists or reuse
+      sessionId = sessionId || ensureSessionId();
+
+      // 2) Get key from local storage (UI should already be populated)
+      let apiKey = $("apiKey").value.trim();
+      if (!apiKey || apiKey.length < 10) {
+        // Try getting from local storage just in case
+        apiKey = getSavedKey();
+      }
+      
+      // If we have a key, pass it to /api/start directly to avoid separate set_key call failure
+      // (Also set UI value if empty)
+      if (apiKey && apiKey.length >= 10 && !$("apiKey").value.trim()) {
+        $("apiKey").value = apiKey;
+      }
+
+      // 3) Call /api/start with apiKey included
+      const data = await api("/api/start", { notes, sessionId, apiKey }, "正在生成第 1 轮题目…");
+      sessionId = data.sessionId;
+      localStorage.setItem("trainer_session_id", sessionId);
+
+      setTopMeta(data.meta);
+      history = data.history || [];
+      updateChart();
+      setWeakness(data.weaknessText || "暂无数据。");
+      isShowingAnswers = false;
+      renderQuiz(data.quiz);
+      $("startHint").textContent = "";
+      logEvent("训练已启动，第一轮题目已准备就绪。", "success");
+    } catch(e){
+      $("startHint").textContent = "提示：请检查 API Key 是否正确，或后端是否运行。";
+      logEvent("启动失败：" + e.message, "error");
+    } finally {
+      $("startBtn").disabled = false;
+    }
+  };
+
+  function showExplanations(results) {
+    if (!results) return;
+    results.forEach(r => {
+      const box = $(`exp_${r.id}`);
+      if (box) {
+        box.style.display = "block";
+        box.className = `explanation-box ${r.correct ? 'correct' : 'wrong'}`;
+        const statusEl = box.querySelector(".exp-status");
+        const answerEl = box.querySelector(".exp-answer");
+        const contentEl = box.querySelector(".explanation-content");
+        
+        if (statusEl) {
+          statusEl.textContent = r.correct ? "✅ 正确" : "❌ 错误";
+          statusEl.style.color = r.correct ? "var(--ok)" : "var(--error)";
+        }
+        if (answerEl) answerEl.textContent = `标准答案: ${r.correctAnswer}`;
+        if (contentEl) contentEl.textContent = r.briefRationale;
+      }
+    });
+  }
+
+  // --- Submit ---
+  $("submitBtn").onclick = async () => {
+    if (!sessionId || !lastQuiz) return;
+
+    // 如果当前已经在显示解析，点击提交则是进入下一轮
+    if (isShowingAnswers) {
+      // 如果当前查看的是历史轮次
+      if (currentViewRound < currentActiveRound) {
+        const nextRound = currentViewRound + 1;
+        if (nextRound === currentActiveRound) {
+          // 回到当前最新轮次
+          isShowingAnswers = false;
+          renderQuiz(lastNextQuiz || lastQuiz);
+        } else {
+          // 加载下一轮历史
+          loadRound(nextRound);
+        }
+        return;
+      }
+
+      if (lastNextQuiz) {
+        isShowingAnswers = false;
+        renderQuiz(lastNextQuiz);
+        lastResults = null;
+        lastNextQuiz = null;
+        return;
+      } else {
+        logEvent("下一轮题目尚未准备好，请稍候...", "info");
+        return;
+      }
+    }
+
+    $("submitBtn").disabled = true;
+    try{
+      let savedKey = getSavedKey();
+      if (!savedKey || savedKey.length < 10){
+         const uiKey = $("apiKey").value.trim();
+         if(uiKey && uiKey.length >= 10) savedKey = uiKey;
+      }
+
+      const answers = collectAnswers();
+      const data = await api("/api/submit", { sessionId, answers, apiKey: savedKey }, "正在判分并生成下一轮…");
+
+      setTopMeta(data.meta);
+      history = data.history || history;
+      updateChart();
+      setWeakness(data.weaknessText || "暂无数据。");
+
+      lastResults = data.results;
+      lastNextQuiz = data.nextQuiz;
+      isShowingAnswers = true;
+
+      if (data.isGoalReached){
+        const ca = data.meta && data.meta.cumulativeAccuracy != null ? Number(data.meta.cumulativeAccuracy).toFixed(1) : "-";
+        logEvent(`目标达成！累计正确率已达 ${ca}%。系统已为您自动调整难度，请继续保持心流状态。`, "success");
+      } 
+      
+      // 显示本轮解析
+      showExplanations(lastResults);
+      
+      // 修改提交按钮文字
+      $("submitBtn").textContent = "进入下一轮";
+      
+      logEvent(`第 ${data.meta.round - 1} 轮评分完成。您可以查看解析，或点击“进入下一轮”。`, "success");
+
+    } catch(e){
+      logEvent("提交失败：" + e.message, "error");
+    } finally {
+      $("submitBtn").disabled = false;
+    }
+  };
+
+  async function loadRound(roundNum) {
+    showLoading(`正在加载第 ${roundNum} 轮记录...`);
+    try {
+      const data = await api("/api/history_round", { sessionId, round: roundNum });
+      isShowingAnswers = true; 
+      renderQuiz(data.quiz, data.results);
+      logEvent(`已加载第 ${roundNum} 轮的历史记录。`, "info");
+    } catch (e) {
+      logEvent(`加载历史失败：${e.message}`, "error");
+    } finally {
+      hideLoading();
+    }
+  }
+
+  // --- Previous Round ---
+  $("prevRoundBtn").onclick = () => {
+    if (!sessionId || currentViewRound <= 1) return;
+    loadRound(currentViewRound - 1);
+  };
+
+  // --- Toggle review ---
+  $("toggleReviewBtn").onclick = () => {
+    if (lastResults) {
+      showExplanations(lastResults);
+      $("toggleReviewBtn").style.display = "none";
+      
+      // 自动滚动到第一个错题（如果有）
+      const firstWrong = lastResults.find(r => !r.correct);
+      if (firstWrong) {
+        const el = $(`exp_${firstWrong.id}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  };
+
+  // --- Reset ---
+  $("resetBtn").onclick = async () => {
+    if (!sessionId){ logEvent("当前没有活跃会话可重置。", "info"); return; }
+    if (!confirm("确定要重置当前会话吗？所有进度将丢失。")) return;
+    try{
+      await api("/api/reset", { sessionId });
+      localStorage.removeItem("trainer_session_id");
+      sessionId = null;
+      lastQuiz = null;
+      lastNextQuiz = null;
+      lastResults = null;
+      isShowingAnswers = false;
+      history = [];
+      updateChart();
+      $("quizCard").style.display = "none";
+      setTopMeta({round:null, lastRoundAccuracy:null, totalAnswered:null, cumulativeAccuracy:null});
+      setWeakness("暂无数据。");
+      logEvent("会话已重置。您可以开始新的训练。", "warn");
+    } catch(e){
+      logEvent("重置失败：" + e.message, "error");
+    }
+  };
+
+  // --- Export (remove apiKey if present) ---
+  $("exportBtn").onclick = async () => {
+    if (!sessionId){ logEvent("没有活跃会话可导出。", "info"); return; }
+    try{
+      const data = await api("/api/export", { sessionId });
+      if (data && typeof data === "object" && "apiKey" in data) delete data.apiKey; // defensive
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `training_report_${sessionId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      logEvent("训练报告已成功导出。", "success");
+    } catch(e){
+      logEvent("导出失败：" + e.message, "error");
+    }
+  };
+
+  // Boot
+  initChart();
+  setKeyUI();
+  try{
+    const draft = localStorage.getItem(NOTES_DRAFT_KEY);
+    if (draft && !$("notes").value.trim()) $("notes").value = draft;
+  } catch {}
+  updateNotesStat();
+
+  (async () => {
+    const ok = await pingBackend();
+    if (!ok) {
+      $("startHint").textContent = "后端未启动或不可访问";
+      logEvent("后端连接失败：请确保 node server.js 正在运行。", "error");
+      return;
+    }
+    if (sessionId){
+      logEvent("正在尝试恢复之前的训练进度...", "info");
+      refreshState();
+    } else {
+      logEvent("系统就绪，请先设置 API Key 并准备笔记。", "info");
+      updateStep(0, 'active');
+    }
+  })();
+</script>
+</body>
+</html>
