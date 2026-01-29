@@ -4,6 +4,8 @@
   "private": true,
   "dependencies": {
     "ajv": "^8.17.1",
+    "better-sqlite3": "^12.6.2",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "mammoth": "^1.11.0",
