@@ -89,6 +89,178 @@
       font-weight: normal;
     }
 
+    .wrong-toolbar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .toolbar-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .toolbar-row + .toolbar-row { margin-top: 10px; }
+    .toolbar-input {
+      flex: 1;
+      min-width: 190px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      font-size: 14px;
+      margin-bottom: 0;
+    }
+    .toolbar-btn {
+      width: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .toolbar-btn.ghost { color: var(--text); }
+    .filter-block {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .filter-label {
+      width: 48px;
+      font-size: 12px;
+      color: var(--muted);
+      padding-top: 6px;
+      flex: 0 0 auto;
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 220px;
+    }
+    .chip {
+      width: auto;
+      padding: 6px 10px;
+      font-size: 12px;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      font-weight: 600;
+      line-height: 1.2;
+    }
+    .chip:active { transform: scale(0.98); }
+    .chip--active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .chip--soft {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      color: var(--text);
+    }
+    .chip--tag {
+      background: #fff;
+      border-color: #e2e8f0;
+      color: #0f172a;
+      font-weight: 500;
+    }
+    .chip[data-filter-key="status"][data-filter-val="reviewed"].chip--active {
+      background: #0ea5e9;
+      border-color: #0ea5e9;
+    }
+    .chip[data-filter-key="status"][data-filter-val="mastered"].chip--active {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    .chip[data-filter-key="status"][data-filter-val="unreviewed"].chip--active {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+    .chip-count {
+      margin-left: 6px;
+      font-size: 11px;
+      opacity: 0.85;
+    }
+    .chip[data-filter-key="chapter"] {
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .active-filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #wrongDetailView .wrong-rationale { display: block; }
+    #wrongDetailView.answers-hidden .wrong-answer,
+    #wrongDetailView.answers-hidden .wrong-rationale {
+      display: none;
+    }
+    #wrongDetailView.answers-hidden .wrong-hidden-hint {
+      display: block;
+    }
+    .wrong-hidden-hint {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .chapter-menu-wrap { position: relative; display: flex; align-items: center; gap: 8px; }
+    .chapter-menu-btn {
+      width: auto;
+      padding: 6px 10px;
+      height: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .chapter-menu {
+      position: absolute;
+      right: 0;
+      top: 42px;
+      min-width: 140px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 6px;
+      z-index: 50;
+    }
+    .chapter-menu button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .chapter-menu button:hover { background: #f1f5f9; }
+    .chapter-menu .danger { color: var(--error); }
+
     /* Question Styles */
     .q-tag {
       display: inline-block;
@@ -218,8 +390,8 @@
 <!-- Loading Overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">正在提取这一节最容易误解的地方</div>
-  <div class="loading-sub">只生成少量必要的检查题</div>
+  <div class="loading-text">这里只检查一件事：你刚学的这点，现在稳不稳。</div>
+  <div class="loading-sub">正在同步知识点...</div>
   <pre id="streamPreview" style="width:min(92vw,640px); max-height: 35vh; overflow:auto; margin-top:14px; padding:12px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; color:#0f172a; font-size:12px; line-height:1.5; display:none; white-space:pre-wrap;"></pre>
 </div>
 
@@ -242,8 +414,17 @@
         </div>
       </div>
       
+      <div id="modelSection" style="margin-bottom: 16px;">
+        <label class="text-sm" style="font-weight: 600; margin-bottom: 6px; display: block;">选择模型</label>
+        <select id="modelSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: #fff;">
+          <option value="deepseek-chat">DeepSeek-V3</option>
+          <option value="qwen-max">Qwen-Max</option>
+          <option value="qwen-plus">Qwen-Plus</option>
+        </select>
+      </div>
+
       <div id="keySection" style="margin-bottom: 24px;">
-         <label class="text-sm" style="font-weight: 600; margin-bottom: 6px; display: block;">API Key (DeepSeek)</label>
+         <label id="apiKeyLabel" class="text-sm" style="font-weight: 600; margin-bottom: 6px; display: block;">API Key (DeepSeek)</label>
          <input type="password" id="apiKeyInput" placeholder="sk-..." />
       </div>
 
@@ -252,17 +433,33 @@
     </div>
   </div>
 
-  <!-- Wrong Review View -->
+  <!-- Wrong Review View (Group List) -->
   <div id="wrongReviewView" class="hidden fade-in">
     <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
       <button onclick="app.closeWrongReview()" class="ghost" style="width: auto; padding: 0; font-size: 24px;">←</button>
       <h2 style="font-size: 20px;">历史错题回顾</h2>
     </div>
-    <div id="wrongList" style="display: flex; flex-direction: column; gap: 16px;">
-      <!-- Wrong questions injected here -->
+    <div id="weaknessSummary" style="margin-bottom: 20px;"></div>
+    <div id="wrongGroupList" style="display: flex; flex-direction: column; gap: 12px;">
+      <!-- Groups injected here -->
     </div>
     <div id="wrongEmpty" class="text-sm" style="text-align: center; padding: 40px; color: #64748b; display: none;">
       暂无错题记录
+    </div>
+  </div>
+
+  <!-- Wrong Detail View -->
+  <div id="wrongDetailView" class="hidden fade-in">
+    <div style="margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button onclick="app.backToGroups()" class="ghost" style="width: auto; padding: 0; font-size: 24px;">←</button>
+        <h2 id="wrongDetailTitle" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;">错题详情</h2>
+      </div>
+    </div>
+    <div id="wrongToolbar" style="margin-bottom: 14px;"></div>
+    <div id="wrongWeaknessSummary" style="margin-bottom: 14px; display:none;"></div>
+    <div id="wrongList" style="display: flex; flex-direction: column; gap: 16px;">
+      <!-- Wrong questions injected here -->
     </div>
   </div>
 
@@ -309,7 +506,7 @@
       <div class="term-msg" id="termMsg">...</div>
       
       <div style="display: flex; gap: 12px; flex-direction: column;">
-        <button id="termMainBtn">结束</button>
+        <button id="termMainBtn">返回首页</button>
         <button id="termSecBtn" class="secondary hidden">...</button>
       </div>
     </div>
@@ -336,6 +533,20 @@ const app = {
   results: [], // { id, correct, intent }
   currentResults: [], // Detailed results for syncing: { id, isCorrect, userAns, correctAns, rationale }
   history: [], // For stats
+  wrongGroups: [], // Historical wrong questions grouped by session
+  globalWeaknessRefs: null,
+  currentWrongGroupIdx: -1,
+  wrongDetailMode: 'group', // group | weakness
+  currentWeaknessIntent: '',
+  wrongFilter: { chapter: 'all', status: 'unreviewed', search: '' },
+  currentWrongFullList: [],
+  currentWrongFilteredList: [],
+  wrongNavIndex: -1,
+  wrongScrollMemory: {},
+  wrongScrollHandler: null,
+  wrongRevealAnswers: false,
+  openChapterMenuEl: null,
+  noteInsight: { status: 'idle', intent: '', items: [], highlights: [], error: '' },
   
   // Stats tracking for stop rules
   stats: {
@@ -345,16 +556,113 @@ const app = {
     D: { pass: 0, fail: 0 }
   },
 
+  // 加载文案池
+  loadingMessages: {
+    A: [
+      "这里只检查一件事：你刚学的这点，现在稳不稳。",
+      "这不是练习时间，而是一次快速确认。",
+      "不需要学得更多，只需要知道现在够不够。",
+      "刚学完时，判断理解最容易出错。",
+      "题目不是目的，判断才是。"
+    ],
+    B: [
+      "正在提取这一节最容易被误解的地方。",
+      "只会生成少量、但必要的检查题。",
+      "比起多出题，我们更关心哪些地方容易想当然。",
+      "生成的不是题库，而是一次判断工具。",
+      "如果这一节不适合出题，我们会直接告诉你。"
+    ],
+    C: [
+      "这个工具不适合连续使用。",
+      "如果理解已经稳定，系统会建议你停下来。",
+      "多做几题，未必更有用。",
+      "有些时候，停下来比继续做更有效。",
+      "这里不会用题量换安心感。"
+    ],
+    D: [
+      "这一步的目标，是让你安心进入下一节。",
+      "当继续出题意义不大时，系统会主动结束。",
+      "如果题目已经不能提高理解，我们会让你停。",
+      "你不需要把这一节‘刷完’。",
+      "学会在合适的时候停下来，是学习的一部分。"
+    ],
+    E: [
+      "如果你觉得题目不严谨，默认是题目的问题。",
+      "这不是考试，没有陷阱需要你去‘防’。",
+      "这里只检查刚学的内容，不会超纲。",
+      "题目只是参考，判断才是结果。",
+      "你可以随时结束，不会影响任何记录。"
+    ],
+    F: [
+      "学习中最难的，不是不会，而是误以为会了。",
+      "理解不是连续增长的，而是阶段性稳定的。",
+      "刚学完时的判断，往往最不可靠。",
+      "不是所有进步，都来自继续往前。",
+      "停下来确认一次，反而走得更远。"
+    ]
+  },
+  
+  getCurrentModel() {
+    return (localStorage.getItem('trainer_model') || $('#modelSelect')?.value || 'deepseek-chat').trim();
+  },
+
+  getKeyStorageKey(model) {
+    const m = String(model || 'deepseek-chat').trim().toLowerCase();
+    return `trainer_key_${m}`;
+  },
+
+  getStoredKey(model) {
+    const k = localStorage.getItem(this.getKeyStorageKey(model));
+    if (k) return k;
+    // Only fallback to 'trainer_key' if it looks like a DeepSeek key and we are on deepseek
+    const m = String(model || 'deepseek-chat').trim().toLowerCase();
+    if (m.includes('deepseek')) {
+      return localStorage.getItem('trainer_key') || '';
+    }
+    return '';
+  },
+
+  setStoredKey(model, key) {
+    const m = String(model || 'deepseek-chat').trim();
+    const v = String(key || '').trim();
+    if (!v) return;
+    localStorage.setItem(this.getKeyStorageKey(m), v);
+  },
+
+  applyKeyForModel(model) {
+    const k = this.getStoredKey(model);
+    $('#apiKeyInput').value = k || '';
+  },
+
+  loadingTimer: null,
+  loadingStartTime: 0,
+
   init() {
-    // Load Key
-    const k = localStorage.getItem('trainer_key');
-    if(k) $('#apiKeyInput').value = k;
+    // Load Key and Model
+    const m = this.getCurrentModel();
+    $('#modelSelect').value = m;
+    this.updateApiKeyLabel(m);
+    this.currentModel = m;
+    this.applyKeyForModel(m);
     
     // Bind Events
+    $('#modelSelect').onchange = (e) => {
+      const prevModel = this.currentModel || this.getCurrentModel();
+      const curKey = $('#apiKeyInput')?.value || '';
+      if (prevModel) this.setStoredKey(prevModel, curKey);
+      const model = e.target.value;
+      localStorage.setItem('trainer_model', model);
+      this.updateApiKeyLabel(model);
+      this.currentModel = model;
+      this.applyKeyForModel(model);
+    };
     $('#startBtn').onclick = this.start.bind(this);
     $('#wrongBtn').onclick = this.openWrongReview.bind(this);
     $('#actionBtn').onclick = this.handleAction.bind(this);
-    $('#termMainBtn').onclick = () => location.reload();
+    $('#termMainBtn').onclick = () => {
+      $('#termView').classList.add('hidden');
+      $('#setupView').classList.remove('hidden');
+    };
     $('#notesInput').oninput = (e) => $('#charCount').textContent = `${e.target.value.length} 字`;
     
     $('#pasteBtn').onclick = async () => {
@@ -396,9 +704,25 @@ const app = {
         }
       }
     });
+
+    document.addEventListener('click', () => {
+      if (this.openChapterMenuEl) {
+        this.openChapterMenuEl.remove();
+        this.openChapterMenuEl = null;
+      }
+    });
     
     // Persist Session ID
     localStorage.setItem('trainer_sid', this.sessionId);
+  },
+
+  updateApiKeyLabel(model) {
+    const label = $('#apiKeyLabel');
+    if (model.startsWith('qwen')) {
+      label.textContent = 'API Key (DashScope/Qwen)';
+    } else {
+      label.textContent = 'API Key (DeepSeek)';
+    }
   },
 
   async handleImageUpload(file) {
@@ -485,13 +809,912 @@ const app = {
     setTimeout(() => el.style.opacity = 0, 2000);
   },
 
+  escapeHtml(input) {
+    return String(input ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  },
+
+  formatWrongAnswer(q, val) {
+    if (!q) return String(val ?? "");
+    const t = String(q.type || "");
+    const opts = Array.isArray(q.options) ? q.options : [];
+
+    const normTf = (v) => {
+      if (v === true) return "正确";
+      if (v === false) return "错误";
+      const s = String(v ?? "").trim().toUpperCase();
+      if (s === "T") return "正确";
+      if (s === "F") return "错误";
+      if (s === "TRUE") return "正确";
+      if (s === "FALSE") return "错误";
+      return String(v ?? "");
+    };
+
+    const labelChoice = (letter) => {
+      const s = String(letter ?? "").trim().toUpperCase();
+      if (!s) return "";
+      const idx = s.charCodeAt(0) - 65;
+      if (idx >= 0 && idx < opts.length) return `${s}. ${opts[idx]}`;
+      return s;
+    };
+
+    if (t === "tf") return normTf(val);
+    if (t === "single") return labelChoice(val);
+    if (t === "multi") {
+      const arr = Array.isArray(val) ? val : (val != null ? [val] : []);
+      return arr.map(labelChoice).filter(Boolean).join("、");
+    }
+    if (t === "short") {
+      if (Array.isArray(val)) return val.map(v => String(v ?? "")).filter(Boolean).join("、");
+      return String(val ?? "");
+    }
+    if (Array.isArray(val)) return val.map(v => String(v ?? "")).filter(Boolean).join("、");
+    return String(val ?? "");
+  },
+
+  escapeRegExp(str) {
+    return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  },
+
+  applyHighlights(escapedText, highlights) {
+    let out = String(escapedText || "");
+    const hsRaw = Array.isArray(highlights) ? highlights : [];
+    const hs = Array.from(new Set(hsRaw.map(x => String(x || "").trim()).filter(Boolean)))
+      .filter(s => s.length >= 2 && s.length <= 20)
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 16);
+
+    const placeholders = [];
+    hs.forEach((raw, i) => {
+      const needle = this.escapeHtml(raw);
+      const re = new RegExp(this.escapeRegExp(needle), "g");
+      const token = `@@HL${i}@@`;
+      if (!re.test(out)) return;
+      out = out.replace(re, token);
+      placeholders.push({ token, html: `<mark class="hl">${needle}</mark>` });
+    });
+
+    for (const p of placeholders) {
+      out = out.replaceAll(p.token, p.html);
+    }
+    return out;
+  },
+
+  async loadNoteInsight(intentKey, list) {
+    const key = String(intentKey || "").trim().toUpperCase();
+    if (!["A", "B", "C", "D"].includes(key)) return;
+    const ids = Array.from(new Set((Array.isArray(list) ? list : []).map(x => x?.sourceSessionId).filter(Boolean)));
+    if (ids.length === 0) return;
+    this.noteInsight = { status: 'loading', intent: key, items: [], highlights: [], error: '' };
+    this.renderTwoMinutePanel();
+
+    const model = this.getCurrentModel();
+    const apiKey = (this.getStoredKey(model) || $('#apiKeyInput')?.value || '').trim();
+    if (!apiKey || apiKey.length < 10) {
+      this.noteInsight = { status: "error", intent: key, items: [], highlights: [], error: "未设置 API Key：请在首页输入并保存 Key 后重试。" };
+      this.renderTwoMinutePanel();
+      return;
+    }
+    const payload = { intent: key, sessionIds: ids, apiKey, model };
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 90000) {
+      try {
+        const base = location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
+        const res = await fetch(base + "/api/note_intent_content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        if (data.status === "ready") {
+          this.noteInsight = {
+            status: "ready",
+            intent: key,
+            items: Array.isArray(data.items) ? data.items : [],
+            itemKeys: Array.isArray(data.itemKeys) ? data.itemKeys : [],
+            feedback: data.feedback && typeof data.feedback === 'object' ? data.feedback : {},
+            cacheKey: String(data.cacheKey || ''),
+            warning: String(data.warning || ''),
+            meta: {
+              cachedAt: Number(data.cachedAt) || 0,
+              lastDurationMs: Number(data.lastDurationMs) || 0
+            },
+            error: ""
+          };
+          this.renderTwoMinutePanel();
+          return;
+        }
+        if (data.status === "error") {
+          this.noteInsight = { status: "error", intent: key, items: [], highlights: [], error: data.error || "生成失败" };
+          this.renderTwoMinutePanel();
+          return;
+        }
+      } catch (e) {
+        this.noteInsight = { status: "error", intent: key, items: [], highlights: [], error: e?.message || String(e) };
+        this.renderTwoMinutePanel();
+        return;
+      }
+      await new Promise(r => setTimeout(r, 900));
+    }
+    this.noteInsight = { status: "error", intent: key, items: [], highlights: [], error: "生成较慢，请稍后重试" };
+    this.renderTwoMinutePanel();
+  },
+
+  async loadNoteInsightStatus(intentKey, list) {
+    const key = String(intentKey || "").trim().toUpperCase();
+    if (!["A", "B", "C", "D"].includes(key)) return;
+    const ids = Array.from(new Set((Array.isArray(list) ? list : []).map(x => x?.sourceSessionId).filter(Boolean)));
+    if (ids.length === 0) return;
+    try {
+      const base = location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
+      const res = await fetch(base + "/api/note_intent_status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: key, sessionIds: ids })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!this.noteInsight || this.noteInsight.intent !== key) return;
+      this.noteInsight.statusInfo = {
+        status: String(data.status || ''),
+        etaMs: Number(data.etaMs) || 0,
+        cachedAt: Number(data.cachedAt) || 0,
+        lastDurationMs: Number(data.lastDurationMs) || 0,
+        cacheKey: String(data.cacheKey || '')
+      };
+      this.renderTwoMinutePanel();
+    } catch {}
+  },
+
+  async sendNoteInsightFeedback(itemKey, value) {
+    const intent = String(this.currentWeaknessIntent || '').toUpperCase();
+    if (!["A", "B", "C", "D"].includes(intent)) return;
+    const list = Array.isArray(this.currentWrongFullList) ? this.currentWrongFullList : [];
+    const ids = Array.from(new Set(list.map(x => x?.sourceSessionId).filter(Boolean)));
+    if (ids.length === 0) return;
+    const ck = String(this.noteInsight?.cacheKey || '');
+    try {
+      const base = location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
+      const res = await fetch(base + "/api/note_intent_feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent, sessionIds: ids, cacheKey: ck, itemKey, value })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      if (this.noteInsight && this.noteInsight.feedback) {
+        this.noteInsight.feedback[itemKey] = value;
+      }
+      this.toast('已记录');
+      this.renderTwoMinutePanel();
+    } catch (e) {
+      this.toast('记录失败: ' + (e?.message || e));
+    }
+  },
+
+  focusWrongQuestion(questionId) {
+    const raw = String(questionId ?? "").replace(/"/g, "");
+    if (!raw) return;
+    const listEl = $('#wrongList');
+    if (!listEl) return;
+    const isKey = raw.includes(':') && raw.split(':').length >= 3;
+    const el = isKey
+      ? listEl.querySelector(`[data-key="${raw}"]`)
+      : (listEl.querySelector(`[data-qid="${raw}"]`) || listEl.querySelector(`[data-key="${raw}"]`));
+    if (!el) return;
+    const prevShadow = el.style.boxShadow;
+    const prevBorder = el.style.borderColor;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.35)";
+    el.style.borderColor = "#3b82f6";
+    setTimeout(() => {
+      el.style.boxShadow = prevShadow;
+      el.style.borderColor = prevBorder;
+    }, 1800);
+  },
+
+  jumpToWeakness(intent) {
+    const key = String(intent || "").trim();
+    const refs = this.globalWeaknessRefs && this.globalWeaknessRefs[key] ? this.globalWeaknessRefs[key] : [];
+    if (!Array.isArray(refs) || refs.length === 0) return;
+    const ref = refs[refs.length - 1];
+    const groupIdx = this.wrongGroups.findIndex(g => g.sessionId === ref.sessionId);
+    if (groupIdx === -1) return;
+    this.showWrongDetail(groupIdx, { focusQuestionId: ref.questionId });
+  },
+
+  async renameChapter(groupIdx) {
+    const group = this.wrongGroups[groupIdx];
+    if (!group) return;
+    if (this.openChapterMenuEl) { this.openChapterMenuEl.remove(); this.openChapterMenuEl = null; }
+    const title = prompt("请输入章节名（用于错题回顾分组）", group.title || "");
+    if (title == null) return;
+    const t = String(title).replace(/\s+/g, " ").trim();
+    if (!t) return this.toast("章节名不能为空");
+    try {
+      this.setLoading(true, "正在保存章节名...");
+      const res = await fetch("/api/rename_chapter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: group.sessionId, title: t })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      group.title = data.title || t;
+      $('#wrongDetailTitle').textContent = group.title;
+      this.renderWrongGroups(this.wrongGroups);
+      this.toast("已保存");
+    } catch (e) {
+      this.toast("保存失败: " + (e?.message || e));
+    } finally {
+      this.setLoading(false);
+    }
+  },
+
+  async deleteChapterGroup(groupIdx) {
+    const group = this.wrongGroups[groupIdx];
+    if (!group) return;
+    if (this.openChapterMenuEl) { this.openChapterMenuEl.remove(); this.openChapterMenuEl = null; }
+    const ok = confirm(`删除章节“${group.title}”的全部错题记录？此操作不可恢复。`);
+    if (!ok) return;
+    try {
+      this.setLoading(true, '正在删除...');
+      const res = await fetch('/api/delete_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: group.sessionId })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await this.openWrongReview();
+      this.toast('已删除');
+    } catch (e) {
+      this.toast('删除失败: ' + (e?.message || e));
+    } finally {
+      this.setLoading(false);
+    }
+  },
+
+  setWrongReveal(on) {
+    this.wrongRevealAnswers = Boolean(on);
+    const detail = $('#wrongDetailView');
+    if (!detail) return;
+    if (this.wrongRevealAnswers) detail.classList.remove('answers-hidden');
+    else detail.classList.add('answers-hidden');
+  },
+
+  renderTwoMinutePanel() {
+    const el = $('#wrongWeaknessSummary');
+    if (!el) return;
+    el.style.display = '';
+    const intentMap = { A: '核心概念', B: '变体区分', C: '陷阱识别', D: '知识联结' };
+    const focusMap = {
+      A: '关注概念的“定义/边界/必要条件”，用反例检验边界。',
+      B: '关注条件变化：把“原条件 vs 变体条件”列成对照表。',
+      C: '关注题干陷阱：限定词/否定词/范围词/偷换概念。',
+      D: '关注跨章连接：前置知识 + 本章规则如何拼接成推理链。'
+    };
+    const intent = String(this.currentWeaknessIntent || '').toUpperCase();
+    const title = this.wrongDetailMode === 'weakness' && intent ? `两分钟复盘｜${intentMap[intent] || intent}` : '两分钟复盘';
+    const focus = focusMap[intent] || '先回忆再对照纠错，写一句可复用规则。';
+
+    let noteHtml = '';
+    if (this.wrongDetailMode === 'weakness' && intent) {
+      const ni = this.noteInsight || {};
+      if (ni.intent !== intent) {
+        noteHtml = `<div class="text-sm" style="color:#64748b; margin-top:10px;">笔记提炼：未生成</div>`;
+      } else if (ni.status === 'idle') {
+        const info = ni.statusInfo || {};
+        const etaSec = Number(info.etaMs) ? Math.max(1, Math.round(Number(info.etaMs) / 1000)) : 0;
+        const lastSec = Number(info.lastDurationMs) ? (Number(info.lastDurationMs) / 1000).toFixed(1) : "";
+        const hint =
+          info.status === 'cached'
+            ? `已缓存，0.2s 取回${lastSec ? `（上次生成 ${lastSec}s）` : ''}`
+            : (etaSec ? `预计 ${etaSec}s` : '预计 8~15s');
+        noteHtml = `
+          <div class="text-sm" style="color:#64748b; margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <span>笔记提炼：未生成</span>
+            <button id="genNoteInsightBtn" class="toolbar-btn" style="width:auto;">生成</button>
+            <span style="color:#94a3b8;">${this.escapeHtml(hint)}</span>
+          </div>
+        `;
+      } else if (ni.status === 'loading') {
+        noteHtml = `<div class="text-sm" style="color:#64748b; margin-top:10px;">笔记提炼：生成中…</div>`;
+      } else if (ni.status === 'error') {
+        noteHtml = `<div class="text-sm" style="color:#ef4444; margin-top:10px;">笔记提炼失败：${this.escapeHtml(ni.error || '')}</div>`;
+      } else if (ni.status === 'ready') {
+        const items = Array.isArray(ni.items) ? ni.items : [];
+        const itemKeys = Array.isArray(ni.itemKeys) ? ni.itemKeys : [];
+        const feedback = ni.feedback && typeof ni.feedback === 'object' ? ni.feedback : {};
+        const warn = String(ni.warning || '').trim();
+        const fbBtns = (idx) => {
+          const k = String(itemKeys[idx] || '');
+          if (!k) return '';
+          const v = String(feedback[k] || '');
+          const yesStyle = v === 'useful'
+            ? 'border:1px solid #86efac; background:#f0fdf4; color:#16a34a;'
+            : 'border:1px solid #e2e8f0; background:#fff; color:#64748b;';
+          const noStyle = v === 'bad'
+            ? 'border:1px solid #fca5a5; background:#fef2f2; color:#ef4444;'
+            : 'border:1px solid #e2e8f0; background:#fff; color:#64748b;';
+          return `<span style="display:inline-flex; gap:6px; align-items:center; margin-top:6px;">
+            <span class="text-xs" style="color:#94a3b8;">反馈：</span>
+            <button class="ghost" data-note-key="${this.escapeHtml(k)}" data-note-val="useful" style="width:auto; padding:2px 8px; font-size:12px; height:auto; ${yesStyle}">有用</button>
+            <button class="ghost" data-note-key="${this.escapeHtml(k)}" data-note-val="bad" style="width:auto; padding:2px 8px; font-size:12px; height:auto; ${noStyle}">不通</button>
+          </span>`;
+        };
+        const buildTable = () => {
+          const rows = [];
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            let a = "", b = "", c = "";
+            if (it && typeof it === 'object') {
+              a = String(it.original || "").trim();
+              b = String(it.variant || "").trim();
+              c = String(it.conclusion || "").trim();
+            } else {
+              const parts = String(it || "").split("||").map(s => s.trim());
+              if (parts.length >= 3) ([a, b, c] = parts);
+            }
+            if (!a || !b || !c) continue;
+            rows.push(`<tr>
+              <td style="padding:8px; border-top:1px solid #e2e8f0; vertical-align:top;">${this.escapeHtml(a)}</td>
+              <td style="padding:8px; border-top:1px solid #e2e8f0; vertical-align:top;">${this.escapeHtml(b)}</td>
+              <td style="padding:8px; border-top:1px solid #e2e8f0; vertical-align:top;">
+                <div>${this.escapeHtml(c)}</div>
+                ${fbBtns(i)}
+              </td>
+            </tr>`);
+          }
+          if (!rows.length) return `<div style="color:#64748b;">暂无内容</div>`;
+          return `<div style="overflow:auto;">
+            <table style="width:100%; border:1px solid #e2e8f0; border-radius:10px; border-collapse:separate; border-spacing:0; background:#fff;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="text-align:left; padding:8px;">原条件</th>
+                  <th style="text-align:left; padding:8px;">变体</th>
+                  <th style="text-align:left; padding:8px;">结论</th>
+                </tr>
+              </thead>
+              <tbody>${rows.join('')}</tbody>
+            </table>
+          </div>`;
+        };
+        const buildChain = () => {
+          const rows = [];
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            let a = "", b = "", c = "";
+            if (it && typeof it === 'object') {
+              a = String(it.prior || "").trim();
+              b = String(it.rule || "").trim();
+              c = String(it.derivation || "").trim();
+            } else {
+              const parts = String(it || "").split("||").map(s => s.trim());
+              if (parts.length >= 3) ([a, b, c] = parts);
+            }
+            if (!a || !b || !c) continue;
+            rows.push(`<div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px; margin-bottom:8px;">
+              <div style="font-weight:700; color:#0f172a;">${this.escapeHtml(a)}</div>
+              <div style="color:#64748b; margin:6px 0;">↓</div>
+              <div style="font-weight:700; color:#0f172a;">${this.escapeHtml(b)}</div>
+              <div style="color:#64748b; margin:6px 0;">↓</div>
+              <div style="font-weight:700; color:#0f172a;">${this.escapeHtml(c)}</div>
+              ${fbBtns(i)}
+            </div>`);
+          }
+          if (!rows.length) return `<div style="color:#64748b;">暂无内容</div>`;
+          return rows.join('');
+        };
+
+        const buildCore = () => {
+          const cards = [];
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            if (!it || typeof it !== 'object') continue;
+            const concept = String(it.concept || '').trim();
+            const definition = String(it.definition || '').trim();
+            const boundary = String(it.boundary || '').trim();
+            const necessary = String(it.necessary || '').trim();
+            const counterexample = String(it.counterexample || '').trim();
+            if (!concept || !definition || !boundary || !necessary || !counterexample) continue;
+            cards.push(`<div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px; margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:8px;">
+                <div style="font-weight:800; color:#0f172a;">${this.escapeHtml(concept)}</div>
+                ${fbBtns(i)}
+              </div>
+              <div class="text-sm" style="color:#0f172a; line-height:1.8;">
+                <div><span style="color:#64748b;">定义：</span>${this.escapeHtml(definition)}</div>
+                <div><span style="color:#64748b;">边界：</span>${this.escapeHtml(boundary)}</div>
+                <div><span style="color:#64748b;">必要条件：</span>${this.escapeHtml(necessary)}</div>
+                <div><span style="color:#64748b;">反例：</span>${this.escapeHtml(counterexample)}</div>
+              </div>
+            </div>`);
+          }
+          if (!cards.length) return `<div style="color:#64748b;">暂无内容</div>`;
+          return cards.join('');
+        };
+
+        const contentHtml =
+          intent === 'B' ? buildTable()
+          : (intent === 'D' ? buildChain()
+            : (intent === 'A' ? buildCore()
+              : (items.length ? `<ul style="margin:0; padding-left:18px;">${items.map((it, i) => `<li style="margin-bottom:6px;">${this.escapeHtml(it)}${fbBtns(i)}</li>`).join('')}</ul>` : `<div style="color:#64748b;">暂无内容</div>`)));
+
+        noteHtml = `
+          <details style="margin-top:12px; padding-top:12px; border-top:1px dashed #e2e8f0;" open>
+            <summary class="text-sm" style="font-weight:700; color:#0f172a; cursor:pointer;">笔记提炼（点击折叠/展开）</summary>
+            <div class="text-sm" style="color:#0f172a; line-height:1.8; margin-top:10px;">
+              ${warn ? `<div class="text-xs" style="color:#f59e0b; margin-bottom:8px;">${this.escapeHtml(warn)}</div>` : ``}
+              ${contentHtml}
+            </div>
+          </details>
+        `;
+      }
+    }
+    el.innerHTML = `
+      <div class="card" style="padding: 14px; background: #f8fafc;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div style="font-weight: 700; font-size: 14px;">${this.escapeHtml(title)}</div>
+        </div>
+        <div class="text-sm" style="color:#64748b; margin-top:10px; line-height:1.7;">
+          <div style="margin-bottom:6px;">${this.escapeHtml(focus)}</div>
+          建议顺序：遮挡答案完成回忆 → 显示答案对照纠错 → 标记“已复盘/已掌握”。
+        </div>
+        ${noteHtml}
+      </div>
+    `;
+    const genBtn = el.querySelector('#genNoteInsightBtn');
+    if (genBtn) {
+      genBtn.onclick = () => {
+        if (this.wrongDetailMode !== 'weakness' || !this.currentWeaknessIntent) return;
+        this.loadNoteInsight(this.currentWeaknessIntent, this.currentWrongFullList || []);
+      };
+    }
+    el.querySelectorAll('[data-note-key][data-note-val]').forEach(btn => {
+      btn.onclick = () => {
+        const k = btn.dataset.noteKey;
+        const v = btn.dataset.noteVal;
+        if (!k || !v) return;
+        this.sendNoteInsightFeedback(k, v);
+      };
+    });
+  },
+
+  buildReviewTemplate(intentKey) {
+    const k = String(intentKey || '').trim().toUpperCase();
+    const titleMap = { A: '核心概念', B: '变体区分', C: '陷阱识别', D: '知识联结' };
+    const title = titleMap[k] || k || '错题复盘';
+    const steps = {
+      A: '先用一句话写出概念定义/边界，再对照答案纠错。',
+      B: '先把条件变化写成对照表：原条件 vs 变体条件；再判断结论是否仍成立。',
+      C: '先圈出限定词/否定词/范围词，再解释自己为什么会被误导。',
+      D: '先写出本章与前置知识的连接规则，再说明你当时漏了哪一跳。'
+    };
+    const s = steps[k] || '先回忆再对照，写出一句可复用的规则。';
+    return `【${title}｜2分钟复盘】\n\n1) 先回忆（不看答案）：我当时为什么这么选/这么写？\n\n2) 对照纠错：正确答案是什么？关键依据是哪一句？\n\n3) 生成规则：用一句话写出“下次怎么判断”。\n\n4) 生成对比：写一个反例/对照例（最小差异）。\n\n5) 标记：复盘后点“已复盘/已掌握”。\n\n提示：${s}\n\n填空区：\n- 题干：\n- 我的记录：\n- 正确答案：\n- 我错在（选一项）：概念边界/条件变化/限定词/偷换概念/跨章连接/其他\n- 一句话规则：\n- 一个反例/对照：\n`;
+  },
+
+  copyReviewTemplate(intentKey) {
+    const text = this.buildReviewTemplate(intentKey);
+    navigator.clipboard.writeText(text).then(() => this.toast('已复制复盘模板')).catch(() => this.toast('复制失败'));
+  },
+
+  getWrongScrollKey() {
+    return `${this.wrongDetailMode}:${this.currentWrongGroupIdx}:${this.currentWeaknessIntent}`;
+  },
+
+  rememberWrongScroll() {
+    const key = this.getWrongScrollKey();
+    this.wrongScrollMemory[key] = window.scrollY || 0;
+  },
+
+  restoreWrongScroll() {
+    const key = this.getWrongScrollKey();
+    const y = Number(this.wrongScrollMemory[key]);
+    if (Number.isFinite(y) && y > 0) {
+      requestAnimationFrame(() => window.scrollTo({ top: y }));
+    }
+  },
+
+  bindWrongScroll() {
+    if (this.wrongScrollHandler) window.removeEventListener('scroll', this.wrongScrollHandler);
+    this.wrongScrollHandler = () => {
+      const detail = $('#wrongDetailView');
+      if (!detail || detail.classList.contains('hidden')) return;
+      this.rememberWrongScroll();
+    };
+    window.addEventListener('scroll', this.wrongScrollHandler, { passive: true });
+  },
+
+  resetWrongFilter() {
+    this.wrongFilter = { chapter: 'all', status: 'unreviewed', search: '' };
+  },
+
+  setWrongFilter(patch) {
+    this.wrongFilter = { ...this.wrongFilter, ...(patch || {}) };
+    this.wrongNavIndex = -1;
+    this.rememberWrongScroll();
+    this.renderWrongToolbar();
+    this.renderWrongQuestionsFiltered();
+    this.restoreWrongScroll();
+  },
+
+  clearWrongFilterOne(key) {
+    if (key === 'chapter') return this.setWrongFilter({ chapter: 'all' });
+    if (key === 'status') return this.setWrongFilter({ status: 'unreviewed' });
+    if (key === 'search') return this.setWrongFilter({ search: '' });
+  },
+
+  clearWrongFiltersAll() {
+    this.resetWrongFilter();
+    this.wrongNavIndex = -1;
+    this.rememberWrongScroll();
+    this.renderWrongToolbar();
+    this.renderWrongQuestionsFiltered();
+    this.restoreWrongScroll();
+  },
+
+  applyWrongFilters(list) {
+    const f = this.wrongFilter || {};
+    const chapter = String(f.chapter || 'all');
+    const status = String(f.status || 'unreviewed');
+    const q = String(f.search || '').trim().toLowerCase();
+
+    return (Array.isArray(list) ? list : []).filter(item => {
+      const it = item || {};
+      if (this.wrongDetailMode === 'weakness' && chapter !== 'all') {
+        if (String(it.sourceTitle || '') !== chapter) return false;
+      }
+      const ms = String(it.markStatus || '');
+      if (status === 'unreviewed' && ms) return false;
+      if (status === 'reviewed' && ms !== 'reviewed') return false;
+      if (status === 'mastered' && ms !== 'mastered') return false;
+      if (q) {
+        const hay = `${it.stem || ''} ${it.concept || ''} ${it.sourceTitle || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  },
+
+  renderWrongToolbar() {
+    const wrap = $('#wrongToolbar');
+    if (!wrap) return;
+
+    const f = this.wrongFilter || {};
+    const list = Array.isArray(this.currentWrongFullList) ? this.currentWrongFullList : [];
+    const chapters = Array.from(new Set(list.map(x => String(x?.sourceTitle ?? '')).filter(Boolean))).slice(0, 10);
+
+    const counts = { status: { unreviewed: 0, reviewed: 0, mastered: 0, all: list.length }, chapter: {} };
+    for (const it of list) {
+      const ms = String(it?.markStatus || '');
+      if (!ms) counts.status.unreviewed += 1;
+      else if (ms === 'reviewed') counts.status.reviewed += 1;
+      else if (ms === 'mastered') counts.status.mastered += 1;
+      const c = String(it?.sourceTitle || '');
+      if (c) counts.chapter[c] = (counts.chapter[c] || 0) + 1;
+    }
+
+    const chip = ({ text, active, dataKey, value, count } = {}) => {
+      const cls = `chip ${active ? 'chip--active' : ''}`.trim();
+      const cnt = Number.isFinite(Number(count)) ? `<span class="chip-count">${Number(count)}</span>` : '';
+      return `<button data-filter-key="${dataKey}" data-filter-val="${this.escapeHtml(value)}" class="${cls}">${this.escapeHtml(text)}${cnt}</button>`;
+    };
+
+    const statusLabel = { unreviewed: '未复盘', all: '全部', reviewed: '已复盘', mastered: '已掌握' };
+
+    const activeTags = [];
+    if (this.wrongDetailMode === 'weakness' && f.chapter && f.chapter !== 'all') activeTags.push({ k: 'chapter', t: `章节:${f.chapter}` });
+    if (f.status && f.status !== 'unreviewed') activeTags.push({ k: 'status', t: `状态:${statusLabel[f.status] || f.status}` });
+    if (f.search && String(f.search).trim()) activeTags.push({ k: 'search', t: `搜索:${String(f.search).trim()}` });
+
+    wrap.innerHTML = `
+      <div class="wrong-toolbar">
+        <div class="toolbar-row">
+          <input id="wrongSearchInput" class="toolbar-input" value="${this.escapeHtml(f.search || '')}" placeholder="搜索题干 / 概念 / 章节..." />
+          <button id="wrongRevealBtn" class="toolbar-btn" style="white-space:nowrap; margin-left:10px;">${this.wrongRevealAnswers ? '遮挡答案' : '显示答案'}</button>
+        </div>
+
+        <div class="toolbar-row filter-block">
+          <div class="filter-label">状态</div>
+          <div class="chip-row">
+            ${chip({ text: '全部', active: f.status === 'all', dataKey: 'status', value: 'all', count: counts.status.all })}
+            ${chip({ text: '未复盘', active: f.status === 'unreviewed', dataKey: 'status', value: 'unreviewed', count: counts.status.unreviewed })}
+            ${chip({ text: '已复盘', active: f.status === 'reviewed', dataKey: 'status', value: 'reviewed', count: counts.status.reviewed })}
+            ${chip({ text: '已掌握', active: f.status === 'mastered', dataKey: 'status', value: 'mastered', count: counts.status.mastered })}
+          </div>
+        </div>
+
+        ${this.wrongDetailMode === 'weakness' ? `
+        <div class="toolbar-row filter-block">
+          <div class="filter-label">章节</div>
+          <div class="chip-row">
+            ${chip({ text: '全部', active: f.chapter === 'all', dataKey: 'chapter', value: 'all', count: list.length })}
+            ${chapters.map(c => chip({ text: c, active: f.chapter === c, dataKey: 'chapter', value: c, count: counts.chapter[c] || 0 })).join('')}
+          </div>
+        </div>` : ``}
+
+        <div id="wrongActiveFilters" class="active-filters" style="margin-top:10px; display:${activeTags.length ? 'flex' : 'none'};">
+          <span class="text-xs" style="color:#64748b;">当前筛选：</span>
+          ${activeTags.map(t => `<button class="chip chip--tag" data-clear-one="${t.k}">${this.escapeHtml(t.t)} ×</button>`).join('')}
+          <button id="wrongClearAllBtn" class="chip chip--soft">一键清除</button>
+        </div>
+      </div>
+    `;
+
+    const search = $('#wrongSearchInput');
+    if (search) {
+      let t = null;
+      search.oninput = () => {
+        clearTimeout(t);
+        t = setTimeout(() => this.setWrongFilter({ search: search.value }), 120);
+      };
+    }
+
+    const revealBtn = $('#wrongRevealBtn');
+    if (revealBtn) {
+      revealBtn.onclick = () => {
+        this.setWrongReveal(!this.wrongRevealAnswers);
+        this.renderWrongToolbar();
+      };
+    }
+
+    wrap.querySelectorAll('[data-filter-key]').forEach(btn => {
+      btn.onclick = () => {
+        const k = btn.dataset.filterKey;
+        const v = btn.dataset.filterVal;
+        if (k === 'chapter') {
+          if (v === 'all') return this.setWrongFilter({ chapter: 'all' });
+          if (this.wrongFilter.chapter === v) return this.setWrongFilter({ chapter: 'all' });
+          return this.setWrongFilter({ chapter: v });
+        }
+        if (k === 'status') return this.setWrongFilter({ status: v });
+      };
+    });
+
+    wrap.querySelectorAll('[data-clear-one]').forEach(btn => {
+      btn.onclick = () => this.clearWrongFilterOne(btn.dataset.clearOne);
+    });
+
+    const clearAll = $('#wrongClearAllBtn');
+    if (clearAll) clearAll.onclick = () => this.clearWrongFiltersAll();
+
+  },
+
+  navigateWrong(delta) {
+    const list = Array.isArray(this.currentWrongFilteredList) ? this.currentWrongFilteredList : [];
+    if (list.length === 0) return;
+    if (this.wrongNavIndex < 0 || this.wrongNavIndex >= list.length) this.wrongNavIndex = 0;
+    this.wrongNavIndex = Math.max(0, Math.min(list.length - 1, this.wrongNavIndex + delta));
+    const item = list[this.wrongNavIndex];
+    if (!item) return;
+    this.focusWrongQuestion(item.markKey || item.id);
+  },
+
+  renderWrongQuestionsFiltered() {
+    const container = $('#wrongList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const full = Array.isArray(this.currentWrongFullList) ? this.currentWrongFullList : [];
+    const filtered = this.applyWrongFilters(full);
+    this.currentWrongFilteredList = filtered;
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="card" style="padding:16px; background:#f8fafc; color:#64748b; text-align:center;">当前筛选下暂无错题</div>`;
+      return;
+    }
+
+    filtered.forEach((q, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card fade-in';
+      card.style.padding = '16px';
+      card.style.position = 'relative';
+      card.dataset.qid = String(q.id ?? "");
+      card.dataset.intent = String(q.intent ?? "");
+      card.dataset.key = String(q.markKey ?? "");
+
+      const typeMap = { 'single': '单选题', 'multi': '多选题', 'tf': '判断题', 'short': '简答题' };
+      const intentMap = { 'A': '核心概念', 'B': '变体区分', 'C': '陷阱识别', 'D': '知识联结' };
+      const intentLabel = intentMap[q.intent] || String(q.intent || "");
+      const roundLabel = Number.isFinite(Number(q.round)) ? `第 ${Number(q.round)} 轮` : "";
+      const sourceLine = q.sourceTitle ? `章节：${q.sourceTitle}${q.sourceDate ? `｜${q.sourceDate}` : ""}` : "";
+      const markStatus = String(q.markStatus || "");
+
+      const badge = markStatus === 'mastered'
+        ? `<span class="text-xs" style="color:#16a34a; border:1px solid #bbf7d0; padding:2px 8px; border-radius:999px; background:#f0fdf4;">已掌握</span>`
+        : (markStatus === 'reviewed'
+          ? `<span class="text-xs" style="color:#0ea5e9; border:1px solid #bae6fd; padding:2px 8px; border-radius:999px; background:#f0f9ff;">已复盘</span>`
+          : '');
+
+      const stemHtml = this.escapeHtml(q.stem);
+      const optsArr = Array.isArray(q.options) ? q.options : [];
+      const optionsHtml = optsArr.length
+        ? `<div class="text-sm" style="background:#f8fafc; border:1px solid #e2e8f0; padding:10px; border-radius:10px; margin-bottom:10px; color:#0f172a; line-height:1.7;">${
+            optsArr.map((opt, i) => `${String.fromCharCode(65 + i)}. ${this.escapeHtml(opt)}`).join('<br>')
+          }</div>`
+        : '';
+      const correctHtml = this.escapeHtml(this.formatWrongAnswer(q, q.answer?.value));
+      const rationaleHtml = this.escapeHtml(q.rationale || '暂无详细解析').replace(/\r?\n/g, '<br>');
+      const sourceHtml = sourceLine ? this.escapeHtml(sourceLine) : "";
+
+      const reviewedText = markStatus === 'reviewed' ? '取消复盘' : (markStatus === 'mastered' ? '改为复盘' : '已复盘');
+      const masteredText = markStatus === 'mastered' ? '取消掌握' : '已掌握';
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="q-tag" style="margin:0;">${typeMap[q.type] || q.type}</span>
+            ${intentLabel ? `<span class="text-xs" style="color:#64748b;">${this.escapeHtml(intentLabel)}</span>` : ""}
+            ${roundLabel ? `<span class="text-xs" style="color:#94a3b8;">${this.escapeHtml(roundLabel)}</span>` : ""}
+            ${badge}
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="ghost" data-action="reviewed" style="width:auto; padding:4px 8px; font-size:12px; height:auto; border:1px solid #e2e8f0;">${reviewedText}</button>
+            <button class="ghost" data-action="mastered" style="width:auto; padding:4px 8px; font-size:12px; height:auto; border:1px solid #e2e8f0;">${masteredText}</button>
+          </div>
+        </div>
+        ${sourceHtml ? `<div class="text-xs" style="color:#94a3b8; margin:-2px 0 10px 0;">${sourceHtml}</div>` : ""}
+        <div class="q-stem" style="font-size:15px; margin-bottom:12px;">${stemHtml}</div>
+        ${optionsHtml}
+        <div class="wrong-hidden-hint">答案与解析已遮挡</div>
+        <div class="wrong-answer" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:8px; margin-bottom:10px;">
+          <div class="text-xs" style="color:#16a34a; font-weight:600; margin-bottom:4px;">参考点：</div>
+          <div class="text-sm" style="color:#0f172a;">${correctHtml}</div>
+        </div>
+        <div class="wrong-rationale explanation" style="margin:0; font-size:13px; border-left:4px solid #3b82f6;">
+          <strong style="color:#3b82f6;">解析：</strong><br>
+          ${rationaleHtml}
+        </div>
+      `;
+
+      card.onclick = () => { this.wrongNavIndex = idx; };
+      card.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => e.stopPropagation()));
+      card.querySelectorAll('[data-action]').forEach(btn => {
+        btn.onclick = () => {
+          const action = btn.dataset.action;
+          const cur = String(q.markStatus || "");
+          let next = cur;
+          if (action === 'reviewed') {
+            if (cur === 'reviewed') next = '';
+            else if (cur === 'mastered') next = 'reviewed';
+            else next = 'reviewed';
+          } else if (action === 'mastered') {
+            if (cur === 'mastered') next = '';
+            else next = 'mastered';
+          }
+          q.markStatus = next;
+          this.setWrongMark(q, next);
+        };
+      });
+
+      container.appendChild(card);
+    });
+    this.setWrongReveal(this.wrongRevealAnswers);
+  },
+
+  exportWrong(kind) {
+    const list = Array.isArray(this.currentWrongFilteredList) ? this.currentWrongFilteredList : [];
+    if (list.length === 0) return this.toast("当前筛选下没有错题");
+    const typeMap = { 'single': '单选题', 'multi': '多选题', 'tf': '判断题', 'short': '简答题' };
+    const intentMap = { 'A': '核心概念', 'B': '变体区分', 'C': '陷阱识别', 'D': '知识联结' };
+    if (kind === 'text') {
+      const text = list.map((q, i) => {
+        const opts = q.options && q.options.length > 0 ? q.options.map((opt, ii) => `${String.fromCharCode(65 + ii)}. ${opt}`).join('\n') : '';
+        const src = q.sourceTitle ? `章节：${q.sourceTitle}${q.sourceDate ? `｜日期：${q.sourceDate}` : ''}` : '';
+        const head = `${i + 1}. [${typeMap[q.type] || q.type}]${q.intent ? `(${intentMap[q.intent] || q.intent})` : ''}${Number.isFinite(Number(q.round)) ? `｜第${Number(q.round)}轮` : ''}`;
+        return `${head}\n${src ? src + '\n' : ''}${q.stem}\n${opts ? opts + '\n' : ''}你的记录：${this.formatWrongAnswer(q, q.userAns)}\n参考点：${this.formatWrongAnswer(q, q.answer?.value)}\n解析：${q.rationale || ''}\n`;
+      }).join('\n');
+      return navigator.clipboard.writeText(text).then(() => this.toast("已复制当前列表")).catch(() => this.toast("复制失败"));
+    }
+    if (kind === 'anki') {
+      const rows = list.map(q => {
+        const opts = q.options && q.options.length ? q.options.map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`).join('<br>') : '';
+        const src = q.sourceTitle ? `${q.sourceTitle}${q.sourceDate ? `｜${q.sourceDate}` : ''}` : '';
+        const front = `${src ? `${this.escapeHtml(src)}<br>` : ''}${this.escapeHtml(q.stem)}${opts ? `<br><br>${this.escapeHtml(opts)}` : ''}`;
+        const back = `${this.escapeHtml(this.formatWrongAnswer(q, q.answer?.value))}<br><br>${this.escapeHtml(q.rationale || '')}`;
+        return `${front}\t${back}`;
+      }).join('\n');
+      return navigator.clipboard.writeText(rows).then(() => this.toast("已复制 Anki(Q/A)")).catch(() => this.toast("复制失败"));
+    }
+    const md = list.map((q, i) => {
+      const src = q.sourceTitle ? `**来源**：${q.sourceTitle}${q.sourceDate ? `｜${q.sourceDate}` : ''}` : '';
+      const tags = `**类型**：${typeMap[q.type] || q.type}${q.intent ? `｜${intentMap[q.intent] || q.intent}` : ''}${Number.isFinite(Number(q.round)) ? `｜第${Number(q.round)}轮` : ''}`;
+      const opts = q.options && q.options.length ? q.options.map((opt, ii) => `- ${String.fromCharCode(65 + ii)}. ${opt}`).join('\n') : '';
+      return `### ${i + 1}. ${q.stem}\n\n${src ? src + '\n\n' : ''}${tags}\n\n${opts ? `**选项**\n${opts}\n\n` : ''}**你的记录**：${this.formatWrongAnswer(q, q.userAns)}\n\n**参考点**：${this.formatWrongAnswer(q, q.answer?.value)}\n\n**解析**：${q.rationale || ''}\n`;
+    }).join('\n');
+    navigator.clipboard.writeText(md).then(() => this.toast("已复制 Markdown")).catch(() => this.toast("复制失败"));
+  },
+
+  async setWrongMark(item, status) {
+    const q = item || {};
+    const sid = q.sourceSessionId || (this.wrongDetailMode === 'group' ? (this.wrongGroups[this.currentWrongGroupIdx]?.sessionId) : '');
+    const key = String(q.markKey || '').trim();
+    if (!sid || !key) return;
+    const s = String(status || '').trim();
+
+    for (const it of this.currentWrongFullList) {
+      if (it && it.markKey === key) it.markStatus = s;
+    }
+    this.renderWrongQuestionsFiltered();
+
+    try {
+      const res = await fetch("/api/wrong_mark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sid, markKey: key, status: s || "none" })
+      });
+      if (!res.ok) throw new Error(await res.text());
+    } catch (e) {
+      this.toast("保存失败: " + (e?.message || e));
+    }
+  },
+
   setLoading(show, msg) {
     const el = $('#loadingOverlay');
+    const textEl = el.querySelector('.loading-text');
+    const subEl = el.querySelector('.loading-sub');
+    
     if(show) {
-      if(msg) el.querySelector('.loading-text').textContent = msg;
       el.style.display = 'flex';
+      if(msg) {
+        textEl.textContent = msg;
+        subEl.textContent = ''; // Clear default sub when explicit msg is provided
+      } else {
+        // Start dynamic messages
+        this.loadingStartTime = Date.now();
+        this.updateLoadingMessage();
+        this.loadingTimer = setInterval(() => this.updateLoadingMessage(), 3000);
+      }
     } else {
       el.style.display = 'none';
+      if(this.loadingTimer) {
+        clearInterval(this.loadingTimer);
+        this.loadingTimer = null;
+      }
+    }
+  },
+
+  updateLoadingMessage() {
+    const elapsed = (Date.now() - this.loadingStartTime) / 1000;
+    const textEl = $('#loadingOverlay .loading-text');
+    const subEl = $('#loadingOverlay .loading-sub');
+    
+    // Check if daily first use
+    const lastUse = localStorage.getItem('trainer_last_use');
+    const today = new Date().toDateString();
+    const isFirstUseToday = lastUse !== today;
+    
+    let pool = [];
+    if (isFirstUseToday && elapsed < 3) {
+      // 每天首次使用：强制插入 1 条 D 或 E 类
+      pool = [...this.loadingMessages.D, ...this.loadingMessages.E];
+      localStorage.setItem('trainer_last_use', today);
+    } else if (elapsed < 3) {
+      // 加载 < 3 秒：从 A / B 类随机
+      pool = [...this.loadingMessages.A, ...this.loadingMessages.B];
+    } else if (elapsed < 6) {
+      // 加载 3–6 秒：A / B + C 类随机
+      pool = [...this.loadingMessages.A, ...this.loadingMessages.B, ...this.loadingMessages.C];
+    } else {
+      // 加载 > 6 秒：B / C / F 类随机
+      pool = [...this.loadingMessages.B, ...this.loadingMessages.C, ...this.loadingMessages.F];
+    }
+    
+    const randomMsg = pool[Math.floor(Math.random() * pool.length)];
+    textEl.textContent = randomMsg;
+    
+    // Subtext based on general stage
+    if (elapsed < 3) {
+      subEl.textContent = "正在同步知识点...";
+    } else if (elapsed < 10) {
+      subEl.textContent = "正在构建诊断模型...";
+    } else {
+      subEl.textContent = "正在精选必要题目...";
     }
   },
 
@@ -511,7 +1734,10 @@ const app = {
         body: JSON.stringify({ sessionId: this.sessionId })
       });
       const data = await res.json();
-      this.renderWrongQuestions(data.wrongQuestions || []);
+      this.wrongGroups = data.wrongGroups || [];
+      this.globalWeaknessRefs = data.globalWeaknessRefs || null;
+      this.renderWrongGroups(this.wrongGroups);
+      this.renderWeaknessSummary(data.globalWeakness, this.globalWeaknessRefs);
       $('#setupView').classList.add('hidden');
       $('#wrongReviewView').classList.remove('hidden');
     } catch (e) {
@@ -526,53 +1752,194 @@ const app = {
     $('#setupView').classList.remove('hidden');
   },
 
-  renderWrongQuestions(list) {
-    const container = $('#wrongList');
-    const empty = $('#wrongEmpty');
-    container.innerHTML = '';
-    
-    if (list.length === 0) {
-      empty.style.display = 'block';
-      return;
-    }
-    
-    empty.style.display = 'none';
-    list.forEach((q, idx) => {
-      const card = document.createElement('div');
-      card.className = 'card fade-in';
-      card.style.padding = '16px';
-      card.style.position = 'relative';
-      
-      const typeMap = { 'single': '单选题', 'multi': '多选题', 'tf': '判断题', 'short': '简答题' };
-      const intentMap = { 'A': '核心概念', 'B': '变体区分', 'C': '陷阱识别', 'D': '知识联结' };
-      
-      const optionsText = q.options && q.options.length > 0 
-        ? q.options.map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`).join('\n')
-        : '';
-      
-      const copyText = `题目：${q.stem}\n类型：${typeMap[q.type] || q.type}\n${optionsText ? '选项：\n' + optionsText + '\n' : ''}标准答案：${Array.isArray(q.answer.value) ? q.answer.value.join('、') : q.answer.value}\n解析：${q.rationale}`;
+  backToGroups() {
+    this.rememberWrongScroll();
+    $('#wrongDetailView').classList.add('hidden');
+    $('#wrongReviewView').classList.remove('hidden');
+  },
 
-      card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-          <span class="q-tag" style="margin:0;">${typeMap[q.type] || q.type}</span>
-          <button class="ghost" onclick="app.copyText(this)" data-copy="${encodeURIComponent(copyText)}" style="width:auto; padding:4px 8px; font-size:12px; height:auto; border:1px solid #e2e8f0;">复制题目</button>
-        </div>
-        <div class="q-stem" style="font-size:15px; margin-bottom:12px;">${q.stem}</div>
-        <div style="background:#fff1f2; border:1px solid #fecaca; padding:10px; border-radius:8px; margin-bottom:10px;">
-          <div class="text-xs" style="color:#e11d48; font-weight:600; margin-bottom:4px;">你的回答：</div>
-          <div class="text-sm" style="color:#0f172a;">${Array.isArray(q.userAns) ? q.userAns.join('、') : q.userAns}</div>
-        </div>
-        <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:8px; margin-bottom:10px;">
-          <div class="text-xs" style="color:#16a34a; font-weight:600; margin-bottom:4px;">标准答案：</div>
-          <div class="text-sm" style="color:#0f172a;">${Array.isArray(q.answer.value) ? q.answer.value.join('、') : (q.answer.value === true ? '正确' : (q.answer.value === false ? '错误' : q.answer.value))}</div>
-        </div>
-        <div class="explanation" style="display:block; margin:0; font-size:13px; border-left:4px solid #3b82f6;">
-          <strong style="color:#3b82f6;">解析：</strong><br>
-          ${q.rationale || '暂无详细解析'}
-        </div>
-      `;
-      container.appendChild(card);
-    });
+  renderWrongGroups(groups) {
+     const container = $('#wrongGroupList');
+     const empty = $('#wrongEmpty');
+     container.innerHTML = '';
+     
+     if (groups.length === 0) {
+       empty.style.display = 'block';
+       $('#weaknessSummary').innerHTML = '';
+       return;
+     }
+     
+     empty.style.display = 'none';
+     groups.forEach((group, idx) => {
+       const item = document.createElement('div');
+       item.className = 'card fade-in';
+       item.style.padding = '16px';
+       item.style.cursor = 'pointer';
+       item.style.display = 'flex';
+       item.style.justifyContent = 'space-between';
+       item.style.alignItems = 'center';
+       item.style.marginBottom = '0'; // Use gap from container
+       
+      item.innerHTML = `
+         <div>
+           <div class="text-xs" style="color: #64748b; margin-bottom: 4px;">${group.date}</div>
+          <div style="font-weight: 600; color: var(--text);">${this.escapeHtml(group.title)}</div>
+           <div class="text-xs" style="color: var(--accent); margin-top: 4px;">${group.questions.length} 道错题</div>
+         </div>
+         <div class="chapter-menu-wrap">
+           <button class="chapter-menu-btn" data-idx="${idx}">...</button>
+           <div style="color: #cbd5e1; font-size: 20px;">›</div>
+         </div>
+       `;
+       
+       item.onclick = () => this.showWrongDetail(idx);
+       const btn = item.querySelector('.chapter-menu-btn');
+       if (btn) {
+         btn.onclick = (e) => {
+           e.stopPropagation();
+           if (this.openChapterMenuEl) {
+             this.openChapterMenuEl.remove();
+             this.openChapterMenuEl = null;
+           }
+           const wrap = btn.parentElement;
+           const menu = document.createElement('div');
+           menu.className = 'chapter-menu';
+           menu.innerHTML = `
+             <button data-action="rename">重命名</button>
+             <button data-action="delete" class="danger">删除</button>
+           `;
+           wrap.appendChild(menu);
+           this.openChapterMenuEl = menu;
+           menu.onclick = (ev) => ev.stopPropagation();
+           menu.querySelector('[data-action="rename"]').onclick = (ev) => { ev.stopPropagation(); this.renameChapter(idx); };
+           menu.querySelector('[data-action="delete"]').onclick = (ev) => { ev.stopPropagation(); this.deleteChapterGroup(idx); };
+         };
+       }
+       container.appendChild(item);
+     });
+   },
+
+   renderWeaknessSummary(stats, refs) {
+     const container = $('#weaknessSummary');
+     if (!stats) return;
+     
+     const labels = { A: '核心概念', B: '变体区分', C: '陷阱识别', D: '知识联结' };
+     const order = ['A', 'B', 'C', 'D'];
+     
+     let html = `
+       <div class="card" style="padding: 16px; background: #f8fafc;">
+         <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+           <span>📊 累计薄弱环节分析</span>
+         </div>
+         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+     `;
+     
+     order.forEach((key) => {
+       const count = Number(stats[key] || 0);
+       const clickable = count > 0 && refs && refs[key] && refs[key].length > 0;
+       const bg = count > 0 ? '#fff' : '#f1f5f9';
+       const color = count > 0 ? '#e11d48' : '#94a3b8';
+       html += `
+         <div data-intent="${key}" style="background: ${bg}; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 8px; flex: 1; min-width: 100px; cursor:${clickable ? 'pointer' : 'not-allowed'};">
+           <div class="text-xs" style="color: #64748b; margin-bottom: 2px;">${labels[key]}</div>
+           <div style="font-weight: 600; color: ${color};">${count > 0 ? `${count} 次失误` : '暂无错题'}</div>
+         </div>
+       `;
+     });
+     
+     html += `</div></div>`;
+     container.innerHTML = html;
+     container.querySelectorAll('[data-intent]').forEach(el => {
+       el.onclick = () => {
+         const k = el.dataset.intent;
+         const c = Number(stats && stats[k] ? stats[k] : 0);
+         if (!c) return this.toast('暂无该类错题');
+         this.showWeaknessDetail(k);
+       };
+     });
+   },
+
+   showWeaknessDetail(intent) {
+    const key = String(intent || "").trim().toUpperCase();
+    if (!key) return;
+    const labels = { A: '核心概念', B: '变体区分', C: '陷阱识别', D: '知识联结' };
+    const label = labels[key] || key;
+
+    const list = [];
+    for (const group of (this.wrongGroups || [])) {
+      const qs = Array.isArray(group.questions) ? group.questions : [];
+      for (const q of qs) {
+        if (String(q.intent || "").toUpperCase() === key) {
+          list.push({
+            ...q,
+            sourceTitle: group.title,
+            sourceDate: group.date,
+            sourceSessionId: group.sessionId
+          });
+        }
+      }
+    }
+
+    this.wrongDetailMode = 'weakness';
+    this.currentWeaknessIntent = key;
+    this.currentWrongGroupIdx = -1;
+    this.resetWrongFilter();
+    $('#wrongReviewView').classList.add('hidden');
+    $('#wrongDetailView').classList.remove('hidden');
+    this.setWrongReveal(false);
+    $('#wrongDetailTitle').textContent = `${label}（${list.length}）`;
+    const renameBtn = $('#renameChapterBtn');
+    if (renameBtn) renameBtn.style.display = 'none';
+
+    this.noteInsight = { status: 'idle', intent: key, items: [], itemKeys: [], feedback: {}, cacheKey: '', statusInfo: null, meta: null, error: '' };
+    this.renderTwoMinutePanel();
+    this.loadNoteInsightStatus(key, list);
+
+    this.currentWrongFullList = list;
+    this.renderWrongToolbar();
+    this.renderWrongQuestionsFiltered();
+    this.bindWrongScroll();
+    this.restoreWrongScroll();
+   },
+
+   showWrongDetail(groupIdx, opts = {}) {
+    const group = this.wrongGroups[groupIdx];
+    if (!group) return;
+    
+    this.wrongDetailMode = 'group';
+    this.currentWeaknessIntent = '';
+    this.currentWrongGroupIdx = groupIdx;
+    this.resetWrongFilter();
+    $('#wrongReviewView').classList.add('hidden');
+    $('#wrongDetailView').classList.remove('hidden');
+    this.setWrongReveal(false);
+    $('#wrongDetailTitle').textContent = group.title;
+
+    this.noteInsight = { status: 'idle', intent: '', items: [], highlights: [], error: '' };
+    this.renderTwoMinutePanel();
+
+    const list = (group.questions || []).map(q => ({
+      ...q,
+      sourceTitle: group.title,
+      sourceDate: group.date,
+      sourceSessionId: group.sessionId
+    }));
+
+    this.currentWrongFullList = list;
+    this.renderWrongToolbar();
+    this.renderWrongQuestionsFiltered();
+    this.bindWrongScroll();
+    this.restoreWrongScroll();
+
+    if (opts && opts.focusQuestionId) {
+      setTimeout(() => this.focusWrongQuestion(opts.focusQuestionId), 50);
+    }
+  },
+
+  renderWrongQuestions(list) {
+    this.currentWrongFullList = Array.isArray(list) ? list : [];
+    this.renderWrongToolbar();
+    this.renderWrongQuestionsFiltered();
   },
 
   copyText(btn) {
@@ -595,12 +1962,14 @@ const app = {
   async start() {
     const notes = $('#notesInput').value.trim();
     const apiKey = $('#apiKeyInput').value.trim();
+    const model = this.getCurrentModel();
 
     if(notes.length < 5) return this.toast('请输入更多笔记内容');
     if(apiKey.length < 10) return this.toast('请输入有效的 API Key');
 
-    // Save Key
-    localStorage.setItem('trainer_key', apiKey);
+    // Save Key and Model
+    this.setStoredKey(model, apiKey);
+    localStorage.setItem('trainer_model', model);
 
     // 1. Cooling Check (Local)
     // We also do server check, but local check gives instant feedback
@@ -610,7 +1979,7 @@ const app = {
     this.setStreamPreview('');
 
     try {
-      const data = await this.startWithStream({ notes, apiKey, sessionId: this.sessionId });
+      const data = await this.startWithStream({ notes, apiKey, model, sessionId: this.sessionId });
       this.pack = data.pack;
       this.startRunner();
 
@@ -621,12 +1990,12 @@ const app = {
     }
   },
 
-  async startWithStream({ notes, apiKey, sessionId }) {
+  async startWithStream({ notes, apiKey, model, sessionId }) {
     try {
       const res = await fetch('/api/start_stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes, apiKey, sessionId })
+        body: JSON.stringify({ notes, apiKey, model, sessionId })
       });
 
       if(!res.ok || !res.body) {
@@ -676,7 +2045,7 @@ const app = {
       const res2 = await fetch('/api/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes, apiKey, sessionId })
+        body: JSON.stringify({ notes, apiKey, model, sessionId })
       });
       if(!res2.ok) {
         const txt = await res2.text();
@@ -819,7 +2188,7 @@ const app = {
     let ansText = '';
     const correctAns = Array.isArray(q.answer.value) ? q.answer.value.join('') : q.answer.value;
     if(q.type !== 'short') {
-       ansText = `<strong>${isCorrect ? '✅ 回答正确' : '❌ 回答错误'}</strong><br>标准答案：${correctAns}<br>`;
+       ansText = `<strong>${isCorrect ? '✅ 符合预期' : '❌ 存在偏离'}</strong><br>参考点：${correctAns}<br>`;
     } else {
        ansText = `<strong>${isCorrect ? '✅ 关键点命中' : '⚠️ 关键点缺失'}</strong><br>参考要点：${Array.isArray(q.answer.value) ? q.answer.value.join('、') : q.answer.value}<br>`;
     }
@@ -857,8 +2226,11 @@ const app = {
     
     if (isLast) {
        btn.textContent = '查看诊断结果';
-       // If we finished all, and no unstable rule triggered, it's stable
-       btn.dataset.stop = JSON.stringify(stopDecision || { status: 'stable', reason: 'finished_all' });
+       // Default decision if no stop rules triggered:
+       // If accuracy is low, it's unstable.
+       const acc = (this.results.filter(r => r.correct).length / this.results.length) * 100;
+       const defaultStatus = acc >= 60 ? 'stable' : 'unstable';
+       btn.dataset.stop = JSON.stringify(stopDecision || { status: defaultStatus, reason: 'finished_all' });
     } else {
        btn.textContent = '下一题';
        // We don't stop early anymore per user request
@@ -963,11 +2335,11 @@ const app = {
       
       const wrongIntents = [...new Set(wrongItems.map(r => {
         const q = this.pack.questions.find(qq => qq.id === r.id);
-        return intentMap[q.intent] || '专项练习';
+        return intentMap[q.intent] || '核心点';
       }))];
 
       analysisMsg = `<div style="margin-top:20px; text-align:left; border-top:1px solid #e2e8f0; padding-top:16px;">
-        <div style="font-weight:600; margin-bottom:10px; color:var(--text)">📊 答题表现分析：</div>
+        <div style="font-weight:600; margin-bottom:10px; color:var(--text)">📊 状态分析：</div>
         <div class="text-sm" style="color:var(--text); line-height:1.6;">
           你在 <span style="color:#e11d48; font-weight:600;">${wrongTypes.join('、')}</span> 上出现了失误。<br>
           主要薄弱环节在于：<span style="color:#e11d48; font-weight:600;">${wrongIntents.join('、')}</span>。
@@ -980,10 +2352,6 @@ const app = {
       tTitle.textContent = '这一节已经进入高效吸收区间';
       tMsg.innerHTML = (rules.stable || "继续做题对理解的提升会很有限，建议进入下一节。") + analysisMsg;
       tTitle.style.color = 'var(--success)';
-      
-      secBtn.textContent = '下次再用';
-      secBtn.classList.remove('hidden');
-      secBtn.onclick = () => location.reload();
       
     } else if (decision.status === 'unstable') {
       tIcon.textContent = '💡';
@@ -1005,22 +2373,12 @@ const app = {
       tMsg.innerHTML = (rules.unstable || "建议回看这一段讲解后再使用，不要靠刷题硬推。") + extraMsg;
       tTitle.style.color = 'var(--warning)';
       
-      secBtn.textContent = '返回笔记';
-      secBtn.classList.remove('hidden');
-      secBtn.onclick = () => {
-        $('#termView').classList.add('hidden');
-        $('#setupView').classList.remove('hidden');
-      };
     } else {
       // Limit reached or generic
       tIcon.textContent = '🏁';
       tTitle.textContent = '练习结束';
       tMsg.innerHTML = "所有题目已完成。" + analysisMsg;
       tTitle.style.color = 'var(--accent)';
-      
-      secBtn.textContent = '再来一轮';
-      secBtn.classList.remove('hidden');
-      secBtn.onclick = () => location.reload();
     }
   },
 

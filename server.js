@@ -43,15 +43,48 @@ app.get("/", (req, res) => {
 const TARGET_ACCURACY = 85.0;      // 目标正确率（累计）
 const ROUND_TARGET_ACC = 85.0;     // 每轮期望正确率（用于调难度）
 const DEFAULT_NUM_QUESTIONS = 5;   // 推荐题量 4-5
-const MODEL = process.env.MODEL_NAME || "deepseek-chat";
 const PORT = Number(process.env.PORT || 8787);
 const OCR_LANGS = "chi_sim+eng";
 const OCR_LANG_PATH = process.cwd();
 const MOCK_LLM = process.env.MOCK_LLM === "true";
 const CLEANUP_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+function envPositiveInt(name, fallback) {
+  const v = Number(process.env[name]);
+  if (!Number.isFinite(v) || v <= 0) return fallback;
+  return Math.round(v);
+}
+function envNonNegativeInt(name, fallback) {
+  const v = Number(process.env[name]);
+  if (!Number.isFinite(v) || v < 0) return fallback;
+  return Math.round(v);
+}
+const COMPRESS_THRESHOLD_CHARS = envPositiveInt("COMPRESS_THRESHOLD_CHARS", 20000);
+const COMPRESS_INPUT_MAX_CHARS = envPositiveInt("COMPRESS_INPUT_MAX_CHARS", 24000);
+const COMPRESS_OUTPUT_MAX_CHARS = envPositiveInt("COMPRESS_OUTPUT_MAX_CHARS", 6000);
+const COMPRESS_OUTPUT_MAX_LINES = envPositiveInt("COMPRESS_OUTPUT_MAX_LINES", 140);
+const PACK_MAX_TOKENS = envPositiveInt("PACK_MAX_TOKENS", 1100);
+const LLM_TIMEOUT_MS = envPositiveInt("LLM_TIMEOUT_MS", 90000);
+const LLM_MAX_RETRIES = envNonNegativeInt("LLM_MAX_RETRIES", 0);
+const PACK_CACHE_TTL_MS = envPositiveInt("PACK_CACHE_TTL_MS", 24 * 60 * 60 * 1000);
+const PACK_PROMPT_VERSION = "pack_v2";
 
 // DeepSeek OpenAI-compatible endpoint
-const BASE_URL = "https://api.deepseek.com/v1";
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
+const QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+
+function getAiConfig(modelName) {
+  const m = String(modelName || "").toLowerCase();
+  if (m.startsWith("qwen")) {
+    return {
+      baseUrl: QWEN_BASE_URL,
+      model: m
+    };
+  }
+  return {
+    baseUrl: DEEPSEEK_BASE_URL,
+    model: "deepseek-chat"
+  };
+}
 
 // ====== Static frontend (optional) ======
 // Put your index.html/app.js/styles.css under ./public
@@ -67,6 +100,39 @@ let usageLogs = {
   chapterCooldowns: {}, // { chapterHash: lastTimestamp }
   globalUsage: []       // [ timestamp, ... ]
 };
+
+function describeJsonParseError(err, raw) {
+  const msg = err && err.message ? err.message : String(err);
+  if (!raw || typeof raw !== "string") return msg;
+  const m = msg.match(/position\s+(\d+)/i);
+  if (!m) return msg;
+  const pos = Number(m[1]);
+  if (!Number.isFinite(pos)) return msg;
+  const prefix = raw.slice(0, Math.max(0, Math.min(pos, raw.length)));
+  const lines = prefix.split(/\r?\n/);
+  const line = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  const start = Math.max(0, pos - 80);
+  const end = Math.min(raw.length, pos + 80);
+  const near = raw.slice(start, end).replace(/\r?\n/g, "\\n");
+  return `${msg} (near line ${line} col ${col}) near: ${near}`;
+}
+
+function extractChapterTitleFromNotes(notesRaw) {
+  if (!notesRaw || typeof notesRaw !== "string") return "";
+  const lines = notesRaw
+    .split(/\r?\n/)
+    .map(s => String(s || "").trim())
+    .filter(Boolean);
+  if (lines.length === 0) return "";
+  let title = lines[0].replace(/\s+/g, " ").trim();
+  title = title.replace(/^\s*[\d一二三四五六七八九十]+\s*[\.、:：\-]\s*/, "");
+  const m = title.match(/^(.+?[。！？!?；;])/);
+  if (m) title = m[1];
+  title = title.replace(/[。！？!?；;]+$/, "").trim();
+  if (title.length > 28) title = title.slice(0, 28).trim();
+  return title;
+}
 
 function rotateUsageLogs() {
   try {
@@ -102,14 +168,23 @@ function rotateUsageLogs() {
 }
 
 function safeReadUsage() {
+  let raw = "";
   try {
     if (!fs.existsSync(USAGE_FILE)) return;
-    usageLogs = JSON.parse(fs.readFileSync(USAGE_FILE, "utf-8"));
+    raw = fs.readFileSync(USAGE_FILE, "utf-8");
+    if (!raw.trim()) return;
+    usageLogs = JSON.parse(raw);
     // Clean old global usage (> 2 hours)
     const now = Date.now();
     usageLogs.globalUsage = (usageLogs.globalUsage || []).filter(t => now - t < 2 * 60 * 60 * 1000);
   } catch (e) {
-    console.warn("[persist] load usage failed:", String(e));
+    console.warn("[persist] load usage failed:", describeJsonParseError(e, raw));
+    try {
+      const corruptFile = USAGE_FILE + ".corrupt." + Date.now();
+      if (fs.existsSync(USAGE_FILE)) fs.renameSync(USAGE_FILE, corruptFile);
+    } catch {}
+    usageLogs = { chapterCooldowns: {}, globalUsage: [] };
+    safeWriteUsage();
   }
 }
 
@@ -167,25 +242,75 @@ function recordServerUsage(chapterHash) {
 
 const sessions = new Map();
 const sessionStore = sessions; // Alias to fix ReferenceError: sessionStore is not defined
+const noteIntentCache = new Map(); // key -> { intent, items, createdAt, highlights }
+const noteIntentJobs = new Map(); // key -> Promise
+const practicePackCache = new Map(); // key -> { pack, createdAt }
 const SESS_FILE = path.join(process.cwd(), "sessions.json");
+const NOTES_DIR = path.join(process.cwd(), "notes_storage");
+
+// Ensure directories exist
+if (!fs.existsSync(NOTES_DIR)) {
+  fs.mkdirSync(NOTES_DIR, { recursive: true });
+}
 
 function safeReadSessions() {
+  let raw = "";
   try {
     if (!fs.existsSync(SESS_FILE)) return;
-    const raw = fs.readFileSync(SESS_FILE, "utf-8");
+    
+    try {
+      raw = fs.readFileSync(SESS_FILE, "utf-8");
+      if (!raw.trim()) return;
+    } catch (e) {
+      // If primary file fails, try backup
+      const bakFile = SESS_FILE + ".bak";
+      if (fs.existsSync(bakFile)) {
+        console.log("[persist] main session file failed, trying backup...");
+        raw = fs.readFileSync(bakFile, "utf-8");
+      } else {
+        throw e;
+      }
+    }
+
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return;
+
     for (const s of arr) {
       // Rebuild Sets
       s.seen = new Set(s.seen || []);
       s.seenStems = new Set(s.seenStems || []);
-      // SECURITY: Do not trust persisted API keys. Force re-entry from frontend.
+      // SECURITY: Do not trust persisted API keys.
       s.apiKey = null; 
+
+      // Load notes from separate file if not in JSON
+      if (!s.notesRaw) {
+        const notePath = path.join(NOTES_DIR, `${s.id}.txt`);
+        if (fs.existsSync(notePath)) {
+          s.notesRaw = fs.readFileSync(notePath, "utf-8");
+          s.notes = s.notesRaw;
+        }
+      }
+
+      if (typeof s.chapterTitleOverride !== "string") s.chapterTitleOverride = "";
+      if (!s.model) s.model = "deepseek-chat";
+      if (typeof s.chapterTitleDerived !== "string" || !s.chapterTitleDerived.trim()) {
+        s.chapterTitleDerived = extractChapterTitleFromNotes(s.notesRaw || s.notes || "");
+      }
+      if (!s.wrongMarks || typeof s.wrongMarks !== "object" || Array.isArray(s.wrongMarks)) s.wrongMarks = {};
+
       sessions.set(s.id, s);
     }
     console.log(`[persist] loaded sessions: ${sessions.size}`);
   } catch (e) {
-    console.warn("[persist] load failed:", String(e));
+    console.error("[persist] sessions load failed:", describeJsonParseError(e, raw));
+    sessions.clear();
+    try {
+      const corruptFile = SESS_FILE + ".corrupt." + Date.now();
+      if (fs.existsSync(SESS_FILE)) fs.renameSync(SESS_FILE, corruptFile);
+    } catch {}
+    try {
+      fs.writeFileSync(SESS_FILE, "[]", "utf-8");
+    } catch {}
   }
 }
 
@@ -203,9 +328,12 @@ async function safeWriteSessions() {
     const now = Date.now();
     // Cleanup old sessions
     for (const [id, s] of sessions) {
-      const lastActive = s.lastActive || new Date(s.createdAt).getTime() || 0;
+      const lastActive = s.lastActive || (s.createdAt ? new Date(s.createdAt).getTime() : 0) || 0;
       if (now - lastActive > CLEANUP_AGE_MS) {
         sessions.delete(id);
+        // Also delete notes file
+        const notePath = path.join(NOTES_DIR, `${id}.txt`);
+        if (fs.existsSync(notePath)) fs.unlinkSync(notePath);
         console.log(`[cleanup] removed expired session: ${id}`);
       }
     }
@@ -215,6 +343,16 @@ async function safeWriteSessions() {
       const serialized = { ...s };
       // Security: Never persist API keys to disk
       delete serialized.apiKey;
+      // Storage optimization: Don't store notesRaw in sessions.json
+      // We save it to a separate file instead
+      if (s.notesRaw) {
+        const notePath = path.join(NOTES_DIR, `${s.id}.txt`);
+        fs.writeFileSync(notePath, s.notesRaw, "utf-8");
+        delete serialized.notesRaw;
+        delete serialized.notes; // usually same as notesRaw
+        delete serialized.notesBound; // derived
+      }
+      
       // Serialize Sets
       serialized.seen = Array.from(s.seen || []);
       serialized.seenStems = Array.from(s.seenStems || []);
@@ -223,7 +361,15 @@ async function safeWriteSessions() {
     
     // Async write with atomic rename to prevent blocking event loop
     const tmpFile = SESS_FILE + ".tmp";
+    const bakFile = SESS_FILE + ".bak";
+    
     await fs.promises.writeFile(tmpFile, JSON.stringify(arr, null, 2), "utf-8");
+    
+    // Create backup before replacing main
+    if (fs.existsSync(SESS_FILE)) {
+      await fs.promises.copyFile(SESS_FILE, bakFile);
+    }
+    
     await fs.promises.rename(tmpFile, SESS_FILE);
   } catch (e) {
     console.warn("[persist] save failed:", String(e));
@@ -354,6 +500,117 @@ function gradeNextSchema() {
 }
 const validateGradeNext = ajv.compile(gradeNextSchema());
 
+function noteIntentSchemaBase() {
+  return {
+    type: "object",
+    properties: {
+      validity: {
+        type: "object",
+        properties: { status: { type: "string" } }
+      },
+      intent: { type: "string", enum: ["A", "B", "C", "D"] }
+    },
+    required: ["intent", "items"]
+  };
+}
+
+function noteIntentSchemaC() {
+  return {
+    ...noteIntentSchemaBase(),
+    properties: {
+      ...noteIntentSchemaBase().properties,
+      intent: { type: "string", enum: ["C"] },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            concept: { type: "string" },
+            type: { type: "string", enum: ["限定词", "否定词", "范围词", "偷换概念"] },
+            point: { type: "string" },
+            logic: { type: "string" },
+            prevention: { type: "string" }
+          },
+          required: ["concept", "type", "point", "logic", "prevention"]
+        }
+      }
+    }
+  };
+}
+
+function noteIntentSchemaA() {
+  return {
+    ...noteIntentSchemaBase(),
+    properties: {
+      ...noteIntentSchemaBase().properties,
+      intent: { type: "string", enum: ["A"] },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            concept: { type: "string" },
+            definition: { type: "string" },
+            boundary: { type: "string" },
+            necessary: { type: "string" },
+            counterexample: { type: "string" }
+          },
+          required: ["concept", "definition", "boundary", "necessary", "counterexample"]
+        }
+      }
+    }
+  };
+}
+
+function noteIntentSchemaB() {
+  return {
+    ...noteIntentSchemaBase(),
+    properties: {
+      ...noteIntentSchemaBase().properties,
+      intent: { type: "string", enum: ["B"] },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            original: { type: "string" },
+            variant: { type: "string" },
+            conclusion: { type: "string" }
+          },
+          required: ["original", "variant", "conclusion"]
+        }
+      }
+    }
+  };
+}
+
+function noteIntentSchemaD() {
+  return {
+    ...noteIntentSchemaBase(),
+    properties: {
+      ...noteIntentSchemaBase().properties,
+      intent: { type: "string", enum: ["D"] },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            prior: { type: "string" },
+            rule: { type: "string" },
+            derivation: { type: "string" }
+          },
+          required: ["prior", "rule", "derivation"]
+        }
+      }
+    }
+  };
+}
+
+const validateNoteIntentC = ajv.compile(noteIntentSchemaC());
+const validateNoteIntentA = ajv.compile(noteIntentSchemaA());
+const validateNoteIntentB = ajv.compile(noteIntentSchemaB());
+const validateNoteIntentD = ajv.compile(noteIntentSchemaD());
+
 // ====== Prompt ======
 function makeSystemPrompt() {
   return "You are a helpful assistant.";
@@ -366,7 +623,8 @@ function makePackPrompt() {
     "1. 只基于用户提供的笔记内容，不引入外部新概念。",
     "2. 题量控制在 3-6 题，覆盖核心概念。",
     "3. 必须输出严格的 JSON 格式，不要 Markdown。",
-    "4. 必须包含每道题的完整题干（stem）、选项（options）、答案（answer）和解析（rationale）。",
+    "4. 输出必须以 { 开始并以 } 结束，前后不得有任何其他字符。",
+    "5. 必须包含每道题的完整题干（stem）、选项（options）、答案（answer）和解析（rationale）。",
     "",
     "Practice Pack 结构要求：",
     "1. questions[]: 包含 3-6 道题。",
@@ -374,11 +632,11 @@ function makePackPrompt() {
     "   - stem: 题目描述（必须存在！）",
     "   - type: single|multi|tf|short",
     "   - options: 选项列表。如果是 single/multi，提供 4 个选项；如果是 tf，固定提供 [\"正确\", \"错误\"]；如果是 short，提供空数组 []。",
-    "   - answer: { kind: 'exact'|'set'|'keywords', value: ... }",
-    "     - single/tf: value 为选项字母 (如 'A') 或 'T'/'F' (T对应第1个选项，F对应第2个)",
-    "     - multi: value 为数组 (如 ['A','C'])",
+    "   - answer: { kind: \"exact\"|\"set\"|\"keywords\", value: ... }",
+    "     - single/tf: kind 为 \"exact\"，value 为选项字母 (如 \"A\") 或 \"T\"/\"F\" (T对应第1个选项，F对应第2个)",
+    "     - multi: kind 为 \"set\"，value 为数组 (如 [\"A\",\"C\"])",
     "     - short: value 为关键词数组",
-    "   - rationale: 详细的题目解析。",
+    "   - rationale: 简短清晰的题目解析（2-4 句，避免长篇大论）。",
     "2. stop_rules: 定义何时终止。",
     "   - stable_if: { A_pass: true, B_pass: true }",
     "   - unstable_if: { A_fail_count: 1 }",
@@ -393,27 +651,116 @@ function makePackPrompt() {
 // ====== Robust JSON extraction ======
 function extractFirstJson(text) {
   if (!text) throw new Error("模型返回为空");
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("模型未返回可解析的JSON对象");
+
+  // Pre-process: strip Markdown code blocks if present
+  let cleanText = text.trim();
+  if (cleanText.includes("```json")) {
+    const match = cleanText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (match) cleanText = match[1];
+  } else if (cleanText.includes("```")) {
+    const match = cleanText.match(/```\s*([\s\S]*?)\s*```/);
+    if (match) cleanText = match[1];
   }
-  const jsonStr = text.slice(start, end + 1);
-  try {
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    throw e;
+
+  const normalize = (s) =>
+    String(s || "")
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'")
+      .trim();
+
+  const sanitizeJson = (s) => {
+    let out = normalize(s);
+    out = out.replace(/,\s*([}\]])/g, "$1");
+    return out;
+  };
+
+  const candidates = [];
+  const s = normalize(cleanText);
+  let inStr = false;
+  let quote = "";
+  let escaped = false;
+  let depth = 0;
+  let start = -1;
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        inStr = false;
+        quote = "";
+        continue;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      inStr = true;
+      quote = ch;
+      continue;
+    }
+
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      if (depth > 0) depth -= 1;
+      if (depth === 0 && start !== -1) {
+        candidates.push(s.slice(start, i + 1));
+        start = -1;
+      }
+    }
   }
+
+  if (!candidates.length) throw new Error("模型未返回可解析的JSON对象");
+
+  for (const cand of candidates) {
+    try {
+      return JSON.parse(sanitizeJson(cand));
+    } catch {}
+  }
+
+  const first = candidates[0];
+  return JSON.parse(sanitizeJson(first));
 }
 
   // ====== Client (per session key) ======
-function getClient(apiKey) {
-  if (!apiKey || typeof apiKey !== "string" || apiKey.length < 10) {
-    throw new Error("缺少有效的 API Key。请在前端输入并保存 Key 后再试。");
+function getClient(apiKey, modelName) {
+  const config = getAiConfig(modelName);
+  const isQwen = String(modelName || "").toLowerCase().startsWith("qwen");
+  
+  // Use specific environment variables based on model type
+  const envKey = isQwen 
+    ? (process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY || "")
+    : (process.env.DEEPSEEK_API_KEY || process.env.API_KEY || process.env.OPENAI_API_KEY || "");
+
+  let finalKey = (typeof apiKey === "string" && apiKey.trim().length >= 8) ? apiKey.trim() : String(envKey || "").trim();
+  
+  // Clean up key: remove quotes if present (sometimes happens when copy-pasting)
+  if (finalKey.startsWith('"') && finalKey.endsWith('"')) finalKey = finalKey.slice(1, -1);
+  if (finalKey.startsWith("'") && finalKey.endsWith("'")) finalKey = finalKey.slice(1, -1);
+  
+  if (!finalKey || finalKey.length < 8) {
+    throw new Error(`缺少有效的 API Key (当前模型: ${modelName || '默认'}). 请在前端输入并保存 Key 后再试。`);
   }
+
+  // DEBUG LOG (Helpful for troubleshooting)
+  console.log(`[AI Client] Request for ${modelName} -> BaseURL: ${config.baseUrl}, Key: ****${finalKey.slice(-4)}`);
+
   return new OpenAI({
-    apiKey: apiKey.trim(),
-    baseURL: "https://api.deepseek.com/v1"
+    apiKey: finalKey,
+    baseURL: config.baseUrl,
+    timeout: LLM_TIMEOUT_MS,
+    maxRetries: LLM_MAX_RETRIES
   });
 }
 
@@ -435,6 +782,45 @@ function difficultyAdjustmentByTarget(accuracy, target) {
 function clampInt(n, lo, hi, fallback) {
   const x = Number.isFinite(Number(n)) ? Math.round(Number(n)) : fallback;
   return Math.max(lo, Math.min(hi, x));
+}
+
+function isTimeoutLikeError(e) {
+  const name = String(e?.name || "");
+  const msg = String(e?.message || e || "");
+  return /timeout/i.test(name) || /timeout/i.test(msg) || /ETIMEDOUT/i.test(msg) || /ECONNRESET/i.test(msg);
+}
+
+function practicePackCacheKey({ notes, chapterTitle, model, opts }) {
+  const notesHash = createHash("sha256").update(String(notes || "")).digest("hex");
+  const minQ = clampInt(opts?.minQuestions, 3, 6, 3);
+  const maxQ = clampInt(opts?.maxQuestions, minQ, 6, 6);
+  const maxTokens = Number.isFinite(Number(opts?.maxTokens)) ? Math.max(200, Math.min(1600, Math.round(Number(opts.maxTokens)))) : PACK_MAX_TOKENS;
+  const rationaleHint = String(opts?.rationaleHint || "");
+  const sig = JSON.stringify({
+    v: PACK_PROMPT_VERSION,
+    model: model || "deepseek-chat",
+    chapterTitle: String(chapterTitle || ""),
+    notesHash,
+    minQ,
+    maxQ,
+    maxTokens,
+    rationaleHint
+  });
+  return createHash("sha256").update(sig).digest("hex");
+}
+
+function getPracticePackCache(key) {
+  const v = practicePackCache.get(key);
+  if (!v) return null;
+  if (Date.now() - Number(v.createdAt || 0) > PACK_CACHE_TTL_MS) {
+    practicePackCache.delete(key);
+    return null;
+  }
+  return v.pack || null;
+}
+
+function setPracticePackCache(key, pack) {
+  practicePackCache.set(key, { pack, createdAt: Date.now() });
 }
 
 // ====== Helpers: question de-dup ======
@@ -510,11 +896,17 @@ function getMockResponse(what) {
       }
     });
   }
+  if (what === "note_intent_content") {
+    return JSON.stringify({
+      intent: "A",
+      items: ["Mock 要点 1", "Mock 要点 2", "Mock 要点 3", "Mock 要点 4", "Mock 要点 5", "Mock 要点 6"]
+    });
+  }
   return "{}";
 }
 
 // ====== chatJson with validator ======
-async function chatJson({ session, messages, validator, what, apiKey }) {
+async function chatJson({ session, messages, validator, what, apiKey, model, maxTokens }) {
   if (MOCK_LLM) {
     console.log(`[Mock] chatJson called for ${what}`);
     const mockText = getMockResponse(what);
@@ -526,18 +918,31 @@ async function chatJson({ session, messages, validator, what, apiKey }) {
     return data;
   }
 
-  const client = getClient(apiKey);
+  const modelName = model || session?.model || "deepseek-chat";
+  const client = getClient(apiKey, modelName);
+  const config = getAiConfig(modelName);
 
   let resp;
   try {
-    resp = await client.chat.completions.create({
-      model: MODEL,
+    const baseReq = {
+      model: config.model,
       messages,
       temperature: 0.1,
       top_p: 0.9,
-      max_tokens: 1600
-    });
+      max_tokens: Number.isFinite(Number(maxTokens)) ? Math.max(200, Math.min(1600, Math.round(Number(maxTokens)))) : 1600
+    };
+    try {
+      resp = await client.chat.completions.create({
+        ...baseReq,
+        response_format: { type: "json_object" }
+      });
+    } catch {
+      resp = await client.chat.completions.create(baseReq);
+    }
   } catch (e) {
+    if (e.status === 401) {
+      throw new Error(`身份验证失败 (401): 模型 ${modelName} 的 API Key 无效。请检查 Key 是否正确，或是否与模型匹配。`);
+    }
     throw e;
   }
 
@@ -547,7 +952,34 @@ async function chatJson({ session, messages, validator, what, apiKey }) {
   try {
     data = extractFirstJson(text);
   } catch (e) {
-    throw e;
+    try {
+      const retryMsgs = [
+        ...messages,
+        {
+          role: "user",
+          content: [
+            "上一次输出不是合法 JSON（解析失败）。请严格按要求重新输出。",
+            "必须：",
+            "- 只输出 JSON（不要解释、不要 Markdown、不要代码块）",
+            "- 全部使用英文双引号",
+            "- 数组元素之间必须有逗号",
+            "- 不要尾随逗号",
+            "输出前请自行用 JSON 解析器检查。"
+          ].join("\n")
+        }
+      ];
+      const retry = await client.chat.completions.create({
+        model: config.model,
+        messages: retryMsgs,
+        temperature: 0,
+        top_p: 0.9,
+        max_tokens: Number.isFinite(Number(maxTokens)) ? Math.max(200, Math.min(1600, Math.round(Number(maxTokens)))) : 900
+      });
+      const retryText = retry.choices?.[0]?.message?.content ?? "";
+      data = extractFirstJson(retryText);
+    } catch {
+      throw e;
+    }
   }
 
   // ✅ 只有传了 validator 才校验
@@ -562,22 +994,33 @@ async function chatJson({ session, messages, validator, what, apiKey }) {
   return data;
 }
 
-async function chatTextStream({ messages, what, apiKey, onDelta }) {
+async function chatTextStream({ messages, what, apiKey, model, onDelta, maxTokens }) {
   if (MOCK_LLM) {
     const mockText = getMockResponse(what);
     if (typeof onDelta === "function") onDelta(String(mockText || ""));
     return String(mockText || "");
   }
 
-  const client = getClient(apiKey);
-  const stream = await client.chat.completions.create({
-    model: MODEL,
-    messages,
-    temperature: 0.1,
-    top_p: 0.9,
-    max_tokens: 1600,
-    stream: true
-  });
+  const modelName = model || "deepseek-chat";
+  const client = getClient(apiKey, modelName);
+  const config = getAiConfig(modelName);
+  const mt = Number.isFinite(Number(maxTokens)) ? Math.max(200, Math.min(1600, Math.round(Number(maxTokens)))) : PACK_MAX_TOKENS;
+  let stream;
+  try {
+    stream = await client.chat.completions.create({
+      model: config.model,
+      messages,
+      temperature: 0.1,
+      top_p: 0.9,
+      max_tokens: mt,
+      stream: true
+    });
+  } catch (e) {
+    if (e.status === 401) {
+      throw new Error(`身份验证失败 (401): 模型 ${modelName} 的 API Key 无效。请检查 Key 是否正确，或是否与模型匹配。`);
+    }
+    throw e;
+  }
 
   let full = "";
   for await (const chunk of stream) {
@@ -595,6 +1038,290 @@ function truncateNotesForModel(notes, maxChars = 12000) {
   const head = s.slice(0, Math.floor(maxChars * 0.7));
   const tail = s.slice(-Math.floor(maxChars * 0.25));
   return `${head}\n...\n（中间内容为节省耗时已省略）\n...\n${tail}`;
+}
+
+function truncateNotesForCompression(notes, maxChars = COMPRESS_INPUT_MAX_CHARS) {
+  const s = String(notes || "");
+  if (s.length <= maxChars) return s;
+  const head = s.slice(0, Math.floor(maxChars * 0.75));
+  const tail = s.slice(-Math.floor(maxChars * 0.2));
+  return `${head}\n...\n（中间内容为节省耗时已省略）\n...\n${tail}`;
+}
+
+function limitTextByLinesAndChars(text, maxLines, maxChars) {
+  let s = String(text || "");
+  if (Number.isFinite(Number(maxChars)) && Number(maxChars) > 0 && s.length > Number(maxChars)) {
+    s = s.slice(0, Number(maxChars));
+  }
+  if (Number.isFinite(Number(maxLines)) && Number(maxLines) > 0) {
+    const lines = s.split(/\r?\n/);
+    if (lines.length > Number(maxLines)) {
+      s = lines.slice(0, Number(maxLines)).join("\n");
+    }
+  }
+  return s.trim();
+}
+
+function buildNoteIntentKey(intent, sessionIds) {
+  const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+  ids.sort();
+  const sig = ids.map(id => {
+    const s = sessionStore.get(id);
+    const notes = String(s?.notesRaw || s?.notes || "");
+    const notesSig = createHash("sha256").update(notes.slice(0, 2000)).digest("hex");
+    return `${id}:${notesSig}`;
+  }).join("|");
+  return createHash("sha256").update(`${String(intent)}|${sig}`).digest("hex");
+}
+
+let stopwordConfig = null;
+function loadStopwordConfig() {
+  try {
+    const p = path.join(process.cwd(), "stopwords.json");
+    if (!fs.existsSync(p)) return null;
+    const raw = fs.readFileSync(p, "utf-8");
+    const obj = JSON.parse(raw);
+    const base = Array.isArray(obj?.base) ? obj.base : [];
+    const domains = obj?.domains && typeof obj.domains === "object" ? obj.domains : {};
+    const domainSignals = obj?.domainSignals && typeof obj.domainSignals === "object" ? obj.domainSignals : {};
+    return {
+      base: base.map(String).filter(Boolean),
+      domains,
+      domainSignals
+    };
+  } catch {
+    return null;
+  }
+}
+stopwordConfig = loadStopwordConfig();
+
+function detectDomainFromText(text) {
+  const s = String(text || "");
+  const sig = stopwordConfig?.domainSignals || {};
+  let best = "";
+  let bestScore = 0;
+  for (const [domain, signals] of Object.entries(sig)) {
+    const arr = Array.isArray(signals) ? signals : [];
+    let score = 0;
+    for (const w of arr) {
+      const ww = String(w || "").trim();
+      if (!ww) continue;
+      if (s.includes(ww)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = domain;
+    }
+  }
+  return bestScore >= 2 ? best : "";
+}
+
+function buildStopwordSet(domain) {
+  const base = new Set((stopwordConfig?.base || []).map(String));
+  const dom = String(domain || "");
+  const ds = stopwordConfig?.domains || {};
+  const list = Array.isArray(ds?.[dom]) ? ds[dom] : [];
+  for (const w of list) base.add(String(w || ""));
+  return base;
+}
+
+function buildAdaptiveStopwordsFromNotes(notes, limit = 10) {
+  const s = String(notes || "");
+  const tokens = s.match(/[\u4e00-\u9fff]{2,4}/g) || [];
+  const freq = new Map();
+  for (const t of tokens) {
+    const tok = String(t || "").trim();
+    if (!tok) continue;
+    if (/^(.)\1+$/.test(tok)) continue;
+    freq.set(tok, (freq.get(tok) || 0) + 1);
+  }
+  const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([k]) => k);
+  return new Set(top);
+}
+
+function extractCnKeywords2to4(text, stopSet) {
+  const s = String(text || "");
+  const matches = s.match(/[\u4e00-\u9fff]{2,4}/g) || [];
+  const out = [];
+  for (const t of matches) {
+    const token = String(t || "").trim();
+    if (!token) continue;
+    if (stopSet && stopSet.has(token)) continue;
+    if (/^(.)\1+$/.test(token)) continue;
+    out.push(token);
+  }
+  return out;
+}
+
+function computeTfIdfTop(tokens, perDocTokenSets, limit = 14) {
+  const tf = new Map();
+  for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+  const df = new Map();
+  for (const set of perDocTokenSets) {
+    for (const t of set) df.set(t, (df.get(t) || 0) + 1);
+  }
+  const N = perDocTokenSets.length || 1;
+  const scored = [];
+  for (const [t, c] of tf.entries()) {
+    const d = df.get(t) || 1;
+    const idf = Math.log((N + 1) / (d + 1)) + 1;
+    scored.push([t, c * idf]);
+  }
+  scored.sort((a, b) => b[1] - a[1] || b[0].length - a[0].length);
+  return scored.slice(0, limit).map(([t]) => t);
+}
+
+function collectWrongHighlights(intent, sessionIds, limit = 12) {
+  const freq = new Map();
+  const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+  const notesParts = [];
+  const perDocTokenSets = [];
+  const allTokens = [];
+  for (const sid of ids) {
+    const session = sessionStore.get(sid);
+    if (!session?.history) continue;
+    const notes = String(session?.notesRaw || session?.notes || "").trim();
+    if (notes) notesParts.push(notes);
+    for (const entry of session.history) {
+      if (!entry?.results || !entry?.quiz?.questions) continue;
+      for (const resItem of entry.results) {
+        if (resItem?.isCorrect !== false) continue;
+        const qDetail = entry.quiz.questions.find(q => q.id === resItem.id);
+        if (!qDetail) continue;
+        if (String(qDetail.intent || "").toUpperCase() !== String(intent).toUpperCase()) continue;
+        const c = String(qDetail.concept || "").trim();
+        if (c && c.length <= 20) freq.set(c, (freq.get(c) || 0) + 3);
+        const stem = String(qDetail.stem || "");
+        const combinedNotes = notesParts.join("\n");
+        const domain = detectDomainFromText(combinedNotes);
+        const stopSet = buildStopwordSet(domain);
+        const adaptive = buildAdaptiveStopwordsFromNotes(combinedNotes, 10);
+        for (const w of adaptive) stopSet.add(w);
+        const kws = extractCnKeywords2to4(stem, stopSet);
+        const docSet = new Set(kws);
+        perDocTokenSets.push(docSet);
+        for (const kw of kws) allTokens.push(kw);
+      }
+    }
+  }
+  const tfidfTop = computeTfIdfTop(allTokens, perDocTokenSets, 14);
+  for (const t of tfidfTop) freq.set(t, (freq.get(t) || 0) + 2);
+  return Array.from(freq.entries())
+    .sort((a, b) => (b[1] - a[1]) || (String(b[0]).length - String(a[0]).length))
+    .slice(0, limit)
+    .map(([k]) => k);
+}
+
+function estimateNoteIntentEtaMs(intent, notesLen) {
+  const base = intent === "A" ? 9500 : (intent === "D" ? 9000 : (intent === "B" ? 8000 : 7000));
+  const extra = Math.max(0, Number(notesLen) || 0) / 1200 * 1200;
+  const ms = base + extra;
+  return Math.max(5000, Math.min(25000, Math.round(ms)));
+}
+
+function buildCoreConceptSnippets(notes, concepts, maxChars = 2600) {
+  const s = String(notes || "");
+  const cs = (Array.isArray(concepts) ? concepts : []).map(x => String(x || "").trim()).filter(Boolean);
+  if (!s.trim() || cs.length === 0) return "";
+  const chunks = s
+    .replace(/\r/g, "\n")
+    .split(/[\n。！？!?；;]/)
+    .map(x => String(x || "").trim())
+    .filter(Boolean)
+    .filter(x => x.length >= 6 && x.length <= 90);
+  const out = [];
+  let used = 0;
+  for (const c of cs) {
+    const hits = [];
+    for (const line of chunks) {
+      if (!line.includes(c)) continue;
+      hits.push(line);
+      if (hits.length >= 3) break;
+    }
+    if (!hits.length) continue;
+    const block = [`【概念：${c}】`, ...hits.map(x => `- ${x}`)].join("\n");
+    if (used + block.length + 2 > maxChars) break;
+    out.push(block);
+    used += block.length + 2;
+  }
+  return out.join("\n\n");
+}
+
+function shortenCn(s, maxLen) {
+  let t = String(s || "")
+    .replace(/\s+/g, " ")
+    .replace(/[。；;]+$/g, "")
+    .trim();
+  const m = t.match(/^(.+?[。！？!?；;])/);
+  if (m) t = m[1].replace(/[。！？!?；;]+$/g, "").trim();
+  if (t.length > maxLen) {
+    const cut = t.slice(0, maxLen);
+    const idx = Math.max(cut.lastIndexOf("，"), cut.lastIndexOf("、"), cut.lastIndexOf(" "), cut.lastIndexOf("："), cut.lastIndexOf(":"));
+    const base = (idx >= Math.floor(maxLen * 0.6) ? cut.slice(0, idx) : cut).trim();
+    t = base.replace(/[，、:：\s]+$/g, "").trim() + "…";
+  }
+  return t;
+}
+
+function noteItemStableString(intent, item) {
+  const k = String(intent || "").toUpperCase();
+  if (k === "A") {
+    return JSON.stringify({
+      concept: String(item?.concept || ""),
+      definition: String(item?.definition || ""),
+      boundary: String(item?.boundary || ""),
+      necessary: String(item?.necessary || ""),
+      counterexample: String(item?.counterexample || "")
+    });
+  }
+  if (k === "B") {
+    return JSON.stringify({
+      original: String(item?.original || ""),
+      variant: String(item?.variant || ""),
+      conclusion: String(item?.conclusion || "")
+    });
+  }
+  if (k === "D") {
+    return JSON.stringify({
+      prior: String(item?.prior || ""),
+      rule: String(item?.rule || ""),
+      derivation: String(item?.derivation || "")
+    });
+  }
+  return JSON.stringify({ text: String(item ?? "") });
+}
+
+function noteItemKey(intent, item) {
+  const raw = noteItemStableString(intent, item);
+  return createHash("sha256").update(raw).digest("hex").slice(0, 12);
+}
+
+function mergeNoteInsightFeedback(cacheKey, sessionIds) {
+  const merged = new Map();
+  const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+  for (const sid of ids) {
+    const s = sessionStore.get(sid);
+    const fb = s?.noteInsightFeedback?.[cacheKey];
+    if (!fb || typeof fb !== "object") continue;
+    for (const [itemKey, v] of Object.entries(fb)) {
+      if (!v) continue;
+      const val = typeof v === "string" ? { value: v, ts: 0 } : { value: v.value, ts: Number(v.ts) || 0 };
+      if (!val.value) continue;
+      const cur = merged.get(itemKey);
+      if (!cur || val.ts >= cur.ts) merged.set(itemKey, val);
+    }
+  }
+  const out = {};
+  for (const [k, v] of merged.entries()) out[k] = v.value;
+  return out;
+}
+
+function formatNoteItemForPrompt(intent, item) {
+  const k = String(intent || "").toUpperCase();
+  if (k === "A") return `${String(item?.concept || "")}｜${String(item?.definition || "")}`;
+  if (k === "B") return `${String(item?.original || "")} => ${String(item?.variant || "")} => ${String(item?.conclusion || "")}`;
+  if (k === "D") return `${String(item?.prior || "")} => ${String(item?.rule || "")} => ${String(item?.derivation || "")}`;
+  return String(item ?? "");
 }
 
 function sanitizeOptionText(opt, idx) {
@@ -639,8 +1366,12 @@ function normalizeStopRules(rawStopRules) {
   };
 }
 
-async function generatePracticePackStream({ session, notes, apiKey, onDelta }) {
+async function generatePracticePackStream({ session, notes, apiKey, onDelta, opts }) {
   const notesForModel = truncateNotesForModel(notes, 12000);
+  const minQ = clampInt(opts?.minQuestions, 3, 6, 3);
+  const maxQ = clampInt(opts?.maxQuestions, minQ, 6, 6);
+  const rationaleHint = String(opts?.rationaleHint || "建议 40-80 字，2-4 句");
+  const maxTokens = Number.isFinite(Number(opts?.maxTokens)) ? Number(opts.maxTokens) : PACK_MAX_TOKENS;
   const prompt = `
 输入内容（本章全部边界）：
 ${notesForModel}
@@ -648,7 +1379,7 @@ ${notesForModel}
 任务：
 请生成一个完整的 Practice Pack (JSON)，包含：
 1. 提取核心概念和易错点 (extracted)
-2. 生成 3-6 道检查题 (questions)，每题必须包含题干 (stem)、选项 (options) 和详细解析 (rationale)
+2. 生成 ${minQ}-${maxQ} 道检查题 (questions)，每题必须包含题干 (stem)、选项 (options) 和精炼解析 (rationale)
 3. 设定终止规则 (stop_rules)
 4. 设定 UI 提示 (ui_hints)
 
@@ -656,8 +1387,9 @@ ${notesForModel}
 - 选择题必须提供 options 数组。
 - 判断题 (tf) 的 options 必须为 ["正确", "错误"]。
 - 填空题 (short) 的 options 为 []。
-- rationale 需要简洁清晰（建议 80-160 字），避免长篇大论。
+- rationale 需要简洁清晰（${rationaleHint}），避免长篇大论。
 - 必须严格遵循 System Prompt 中的 JSON 结构定义。
+- 只输出 JSON，必须以 { 开始并以 } 结束（不要任何前后缀文字）。
 `.trim();
 
   const text = await chatTextStream({
@@ -667,15 +1399,27 @@ ${notesForModel}
     ],
     what: "generatePracticePack",
     apiKey,
-    onDelta
+    model: session?.model,
+    onDelta,
+    maxTokens
   });
 
-  const raw = extractFirstJson(text);
+  let raw;
+  try {
+    raw = extractFirstJson(text);
+  } catch {
+    return await generatePracticePack({
+      session,
+      notes,
+      apiKey,
+      opts: { minQuestions: minQ, maxQuestions: maxQ, rationaleHint, maxTokens }
+    });
+  }
 
   const pack = {
     meta: {
       subject: raw.meta?.subject || "未知科目",
-      chapter_title: raw.meta?.chapter_title || "未知章节",
+      chapter_title: session?.chapterTitleOverride || session?.chapterTitleDerived || raw.meta?.chapter_title || "未命名章节",
       version_hash: raw.meta?.version_hash || "v1",
       created_at: raw.meta?.created_at || new Date().toISOString(),
       timebox_minutes: typeof raw.meta?.timebox_minutes === "number" ? raw.meta.timebox_minutes : 15
@@ -705,8 +1449,12 @@ ${notesForModel}
 }
 
 // ====== Generate Practice Pack ======
-async function generatePracticePack({ session, notes, apiKey }) {
+async function generatePracticePack({ session, notes, apiKey, opts }) {
   const notesForModel = truncateNotesForModel(notes, 12000);
+  const minQ = clampInt(opts?.minQuestions, 3, 6, 3);
+  const maxQ = clampInt(opts?.maxQuestions, minQ, 6, 6);
+  const rationaleHint = String(opts?.rationaleHint || "建议 40-80 字，2-4 句");
+  const maxTokens = Number.isFinite(Number(opts?.maxTokens)) ? Number(opts.maxTokens) : PACK_MAX_TOKENS;
   const prompt = `
 输入内容（本章全部边界）：
 ${notesForModel}
@@ -714,7 +1462,7 @@ ${notesForModel}
 任务：
 请生成一个完整的 Practice Pack (JSON)，包含：
 1. 提取核心概念和易错点 (extracted)
-2. 生成 3-6 道检查题 (questions)，每题必须包含题干 (stem)、选项 (options) 和详细解析 (rationale)
+2. 生成 ${minQ}-${maxQ} 道检查题 (questions)，每题必须包含题干 (stem)、选项 (options) 和精炼解析 (rationale)
 3. 设定终止规则 (stop_rules)
 4. 设定 UI 提示 (ui_hints)
 
@@ -722,8 +1470,9 @@ ${notesForModel}
 - 选择题必须提供 options 数组。
 - 判断题 (tf) 的 options 必须为 ["正确", "错误"]。
 - 填空题 (short) 的 options 为 []。
-- rationale 需要简洁清晰（建议 80-160 字），避免长篇大论。
+- rationale 需要简洁清晰（${rationaleHint}），避免长篇大论。
 - 必须严格遵循 System Prompt 中的 JSON 结构定义。
+- 只输出 JSON，必须以 { 开始并以 } 结束（不要任何前后缀文字）。
 `.trim();
 
   const raw = await chatJson({
@@ -734,14 +1483,16 @@ ${notesForModel}
     ],
     validator: null, // 先不校验，手动归一化后再校验
     what: "generatePracticePack",
-    apiKey
+    apiKey,
+    model: session?.model,
+    maxTokens
   });
 
   // 归一化逻辑
   const pack = {
     meta: {
       subject: raw.meta?.subject || "未知科目",
-      chapter_title: raw.meta?.chapter_title || "未知章节",
+      chapter_title: session?.chapterTitleOverride || session?.chapterTitleDerived || raw.meta?.chapter_title || "未命名章节",
       version_hash: raw.meta?.version_hash || "v1",
       created_at: raw.meta?.created_at || new Date().toISOString(),
       timebox_minutes: typeof raw.meta?.timebox_minutes === "number" ? raw.meta.timebox_minutes : 15
@@ -833,7 +1584,8 @@ ${notes}
     ],
     validator: null,
     what: "createQuiz_init",
-    apiKey
+    apiKey,
+    model: session?.model
   });
 
   // Handle Rejection
@@ -1034,7 +1786,8 @@ ${JSON.stringify(answers)}
     // 先不过 schema，拿到原始对象
     validator: null,
     what: "gradeAndNextQuiz_raw",
-    apiKey
+    apiKey,
+    model: session?.model
   });
 
   // 先做字段清洗和兜底
@@ -1261,29 +2014,35 @@ function markSeen(session, quiz) {
 // ====== Helpers: compress notes to boundary ======
 async function compressNotesToBoundary(session, notes) {
   if (MOCK_LLM) return "Mock Notes Boundary";
-  const client = getClient(session.apiKey);
+  const modelName = session?.model || "deepseek-chat";
+  const client = getClient(session.apiKey, modelName);
+  const config = getAiConfig(modelName);
+  const notesInput = truncateNotesForCompression(notes);
   const prompt = `
 你要把用户笔记压缩成“可出题边界”，要求：
 - 只保留：定义/结论/条件/步骤/公式/对比点/易混点
 - 删除：例子/铺垫/感想/重复描述
 - 不得引入新知识
-- 输出纯文本，使用条目化结构（<= 300 行，越短越好）
+- 输出纯文本，使用条目化结构
+- 输出限制：最多 ${COMPRESS_OUTPUT_MAX_LINES} 行，且总字数不超过 ${COMPRESS_OUTPUT_MAX_CHARS} 字（越短越好）
 
-用户笔记：
-${notes}
+用户笔记（可能已截断以节省耗时）：
+${notesInput}
 `.trim();
 
   const resp = await client.chat.completions.create({
-    model: MODEL,
+    model: config.model,
     messages: [
       { role: "system", content: "你是笔记压缩器，只输出纯文本要点。" },
       { role: "user", content: prompt }
     ],
     temperature: 0.1,
-    top_p: 0.9
+    top_p: 0.9,
+    max_tokens: 900
   });
 
-  return (resp.choices?.[0]?.message?.content ?? "").trim();
+  const out = (resp.choices?.[0]?.message?.content ?? "").trim();
+  return limitTextByLinesAndChars(out, COMPRESS_OUTPUT_MAX_LINES, COMPRESS_OUTPUT_MAX_CHARS);
 }
 
 // ====== OCR Worker Pool (Single Persistent Worker) ======
@@ -1372,7 +2131,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 
 app.post("/api/start", async (req, res) => {
   try {
-    const { notes, sessionId: existing, apiKey } = req.body || {};
+    const { notes, sessionId: existing, apiKey, model } = req.body || {};
     if (!notes || String(notes).trim().length < 5) return res.status(400).send("notes 不能为空");
 
     const id = existing || randomUUID();
@@ -1381,9 +2140,13 @@ app.post("/api/start", async (req, res) => {
     const session = sessionStore.get(id) || {
       id,
       apiKey: null,
+      model: "deepseek-chat",
       notes: "",
       notesRaw: "",
       notesBound: "",
+      chapterTitleDerived: "",
+      chapterTitleOverride: "",
+      wrongMarks: {},
       round: 1,
       difficultyState: { level: 0 },
       history: [],
@@ -1411,7 +2174,16 @@ app.post("/api/start", async (req, res) => {
       }
     }
 
-    if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
+    if (model && typeof model === "string" && model !== session.model) {
+      // If model changed, we MUST have a new apiKey or we clear the old one
+      // to avoid using DeepSeek key for Qwen or vice-versa.
+      if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
+        session.apiKey = apiKey.trim();
+      } else {
+        session.apiKey = null; // Clear mismatched key
+      }
+      session.model = model;
+    } else if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
       session.apiKey = apiKey.trim();
     }
 
@@ -1419,6 +2191,7 @@ app.post("/api/start", async (req, res) => {
     session.notesRaw = String(notes);
     session.notes = session.notesRaw;
     session.notesBound = session.notesBound || "";
+    session.chapterTitleDerived = extractChapterTitleFromNotes(session.notesRaw);
     session.createdAt = session.createdAt || now;
     session.lastActive = Date.now();
 
@@ -1429,8 +2202,12 @@ app.post("/api/start", async (req, res) => {
     }
 
     // skip heavy compression to save time, unless notes are massive
-    if (session.notesRaw.length > 8000) {
-      session.notesBound = await compressNotesToBoundary(session, session.notesRaw);
+    if (session.notesRaw.length > COMPRESS_THRESHOLD_CHARS) {
+      try {
+        session.notesBound = await compressNotesToBoundary(session, session.notesRaw);
+      } catch {
+        session.notesBound = truncateNotesForModel(session.notesRaw, 12000);
+      }
     } else {
       session.notesBound = session.notesRaw;
     }
@@ -1442,11 +2219,39 @@ app.post("/api/start", async (req, res) => {
       session.seen = session.seen || new Set();
     }
 
-    const pack = await generatePracticePack({
-      session,
-      notes: session.notesBound || session.notesRaw || session.notes,
-      apiKey: session.apiKey
-    });
+    const notesForPack = session.notesBound || session.notesRaw || session.notes;
+    const chapterTitle = session.chapterTitleOverride || session.chapterTitleDerived || "";
+    const baseCacheKey = practicePackCacheKey({ notes: notesForPack, chapterTitle, model: session.model, opts: null });
+    let pack = getPracticePackCache(baseCacheKey);
+    if (!pack) {
+      try {
+        pack = await generatePracticePack({
+          session,
+          notes: notesForPack,
+          apiKey: session.apiKey
+        });
+        setPracticePackCache(baseCacheKey, pack);
+      } catch (e) {
+        if (!isTimeoutLikeError(e)) throw e;
+        const fastOpts = {
+          minQuestions: 3,
+          maxQuestions: 3,
+          rationaleHint: "建议 20-50 字，1-2 句",
+          maxTokens: 750
+        };
+        const fastCacheKey = practicePackCacheKey({ notes: notesForPack, chapterTitle, model: session.model, opts: fastOpts });
+        pack = getPracticePackCache(fastCacheKey);
+        if (!pack) {
+          pack = await generatePracticePack({
+            session,
+            notes: notesForPack,
+            apiKey: session.apiKey,
+            opts: fastOpts
+          });
+          setPracticePackCache(fastCacheKey, pack);
+        }
+      }
+    }
 
     session.lastPack = pack; // Save the pack
     session.lastQuiz = { questions: pack.questions }; // Legacy support if needed
@@ -1476,7 +2281,7 @@ app.post("/api/start_stream", async (req, res) => {
   };
 
   try {
-    const { notes, sessionId: existing, apiKey } = req.body || {};
+    const { notes, sessionId: existing, apiKey, model } = req.body || {};
     if (!notes || String(notes).trim().length < 5) {
       writeLine({ type: "error", message: "notes 不能为空" });
       return res.end();
@@ -1488,9 +2293,13 @@ app.post("/api/start_stream", async (req, res) => {
     const session = sessionStore.get(id) || {
       id,
       apiKey: null,
+      model: "deepseek-chat",
       notes: "",
       notesRaw: "",
       notesBound: "",
+      chapterTitleDerived: "",
+      chapterTitleOverride: "",
+      wrongMarks: {},
       round: 1,
       difficultyState: { level: 0 },
       history: [],
@@ -1516,13 +2325,21 @@ app.post("/api/start_stream", async (req, res) => {
       session.pendingChapterHash = cooling.chapterHash;
     }
 
-    if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
+    if (model && typeof model === "string" && model !== session.model) {
+      if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
+        session.apiKey = apiKey.trim();
+      } else {
+        session.apiKey = null;
+      }
+      session.model = model;
+    } else if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
       session.apiKey = apiKey.trim();
     }
 
     session.notesRaw = String(notes);
     session.notes = session.notesRaw;
     session.notesBound = session.notesBound || "";
+    session.chapterTitleDerived = extractChapterTitleFromNotes(session.notesRaw);
     session.createdAt = session.createdAt || now;
     session.lastActive = Date.now();
 
@@ -1532,9 +2349,14 @@ app.post("/api/start_stream", async (req, res) => {
       return res.end();
     }
 
-    if (session.notesRaw.length > 8000) {
+    if (session.notesRaw.length > COMPRESS_THRESHOLD_CHARS) {
       writeLine({ type: "stage", value: "正在压缩笔记（仅对超长内容）" });
-      session.notesBound = await compressNotesToBoundary(session, session.notesRaw);
+      try {
+        session.notesBound = await compressNotesToBoundary(session, session.notesRaw);
+      } catch {
+        writeLine({ type: "stage", value: "压缩失败，已跳过压缩以节省时间" });
+        session.notesBound = truncateNotesForModel(session.notesRaw, 12000);
+      }
     } else {
       session.notesBound = session.notesRaw;
     }
@@ -1557,15 +2379,45 @@ app.post("/api/start_stream", async (req, res) => {
       lastFlush = nowMs;
     };
 
-    const pack = await generatePracticePackStream({
-      session,
-      notes: session.notesBound || session.notesRaw || session.notes,
-      apiKey: session.apiKey,
-      onDelta: (t) => {
-        sendBuf += String(t || "");
-        flush(false);
+    const notesForPack = session.notesBound || session.notesRaw || session.notes;
+    const chapterTitle = session.chapterTitleOverride || session.chapterTitleDerived || "";
+    const baseCacheKey = practicePackCacheKey({ notes: notesForPack, chapterTitle, model: session.model, opts: null });
+    let pack = getPracticePackCache(baseCacheKey);
+    if (!pack) {
+      try {
+        pack = await generatePracticePackStream({
+          session,
+          notes: notesForPack,
+          apiKey: session.apiKey,
+          onDelta: (t) => {
+            sendBuf += String(t || "");
+            flush(false);
+          }
+        });
+        setPracticePackCache(baseCacheKey, pack);
+      } catch (e) {
+        if (!isTimeoutLikeError(e)) throw e;
+        flush(true);
+        writeLine({ type: "stage", value: "生成超时，正在启用快速模式重试" });
+        const fastOpts = {
+          minQuestions: 3,
+          maxQuestions: 3,
+          rationaleHint: "建议 20-50 字，1-2 句",
+          maxTokens: 750
+        };
+        const fastCacheKey = practicePackCacheKey({ notes: notesForPack, chapterTitle, model: session.model, opts: fastOpts });
+        pack = getPracticePackCache(fastCacheKey);
+        if (!pack) {
+          pack = await generatePracticePack({
+            session,
+            notes: notesForPack,
+            apiKey: session.apiKey,
+            opts: fastOpts
+          });
+          setPracticePackCache(fastCacheKey, pack);
+        }
       }
-    });
+    }
 
     flush(true);
 
@@ -1588,15 +2440,22 @@ app.post("/api/start_stream", async (req, res) => {
 
 app.post("/api/submit", async (req, res) => {
   try {
-    const { sessionId, answers, apiKey } = req.body || {};
+    const { sessionId, answers, apiKey, model } = req.body || {};
     const session = sessionStore.get(sessionId);
     if (!session) return res.status(400).send("无效 sessionId，请先开始训练。");
 
     session.lastActive = Date.now();
 
     // Robust Key Handling: Update session key if provided in request
-    if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
-       session.apiKey = apiKey.trim();
+    if (model && typeof model === "string" && model !== session.model) {
+      if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
+        session.apiKey = apiKey.trim();
+      } else {
+        session.apiKey = null;
+      }
+      session.model = model;
+    } else if (apiKey && typeof apiKey === "string" && apiKey.length > 5) {
+      session.apiKey = apiKey.trim();
     }
 
     if (!session.apiKey) return res.status(400).send("缺少 API Key：请在前端输入并保存 Key 后再试。");
@@ -1773,40 +2632,566 @@ app.post("/api/history_round", (req, res) => {
 });
 
 app.post("/api/wrong_questions", (req, res) => {
-  const { sessionId } = req.body || {};
-  const session = sessionStore.get(sessionId);
-  if (!session) return res.status(400).send("无效 sessionId。");
-
-  const wrongQuestions = [];
-  // session.history contains: { round, accuracy, total, correct, quiz, results }
-  // results is an array of: { id, isCorrect, userAns, correctAns, rationale }
-  
-  for (const entry of session.history) {
-    if (!entry.results || !entry.quiz) continue;
+    const wrongGroups = [];
+    const globalWeakness = { A: 0, B: 0, C: 0, D: 0 };
+    const globalWeaknessRefs = { A: [], B: [], C: [], D: [] };
     
-    for (const resItem of entry.results) {
-      if (resItem.isCorrect === false) {
-        // Find the question detail from the quiz
-        const qDetail = entry.quiz.questions.find(q => q.id === resItem.id);
-        if (qDetail) {
-          wrongQuestions.push({
-            ...qDetail,
-            userAns: resItem.userAns,
-            isCorrect: false,
-            round: entry.round,
-            // standard format expected by frontend
-            correctAns: resItem.correctAns,
-            rationale: resItem.rationale || qDetail.rationale
-          });
+    for (const [sid, session] of sessionStore.entries()) {
+      const sessionWrongQuestions = [];
+      const dateStr = new Date(session.createdAt || session.lastActive).toLocaleDateString();
+      const title = session.chapterTitleOverride || session.chapterTitleDerived || session.lastPack?.meta?.chapter_title || "未命名章节";
+      const marks = session.wrongMarks && typeof session.wrongMarks === "object" ? session.wrongMarks : {};
+      
+      for (const entry of session.history) {
+        if (!entry.results || !entry.quiz) continue;
+        
+        for (const resItem of entry.results) {
+          if (resItem.isCorrect === false) {
+            const qDetail = entry.quiz.questions.find(q => q.id === resItem.id);
+            if (qDetail) {
+              const intent = qDetail.intent || "A";
+              if (globalWeakness[intent] !== undefined) globalWeakness[intent]++;
+              if (globalWeaknessRefs[intent] !== undefined) {
+                globalWeaknessRefs[intent].push({ sessionId: sid, questionId: String(qDetail.id), round: entry.round });
+              }
+              const markKey = `${sid}:${entry.round}:${String(qDetail.id)}`;
+              const markStatus = marks[markKey] ? String(marks[markKey]) : "";
+              
+              sessionWrongQuestions.push({
+                ...qDetail,
+                userAns: resItem.userAns,
+                isCorrect: false,
+                round: entry.round,
+                correctAns: resItem.correctAns,
+                rationale: resItem.rationale || qDetail.rationale,
+                markKey,
+                markStatus
+              });
+            }
+          }
         }
       }
+      
+      if (sessionWrongQuestions.length > 0) {
+        wrongGroups.push({
+          sessionId: sid,
+          date: dateStr,
+          title: title,
+          questions: sessionWrongQuestions
+        });
+      }
     }
-  }
+ 
+    // Sort by date descending
+    wrongGroups.sort((a, b) => new Date(b.date) - new Date(a.date));
+ 
+    res.json({
+      wrongGroups,
+      globalWeakness,
+      globalWeaknessRefs
+    });
+  });
 
-  res.json({
-     wrongQuestions
-   });
- });
+app.post("/api/rename_chapter", (req, res) => {
+  const { sessionId, title } = req.body || {};
+  if (!sessionId) return res.status(400).send("无效 sessionId。");
+  const session = sessionStore.get(sessionId);
+  if (!session) return res.status(400).send("无效 sessionId。");
+  const t = String(title || "").replace(/\s+/g, " ").trim();
+  if (!t) return res.status(400).send("章节名不能为空。");
+  const finalTitle = t.length > 80 ? t.slice(0, 80).trim() : t;
+  session.chapterTitleOverride = finalTitle;
+  if (session.lastPack && session.lastPack.meta) {
+    session.lastPack.meta.chapter_title = finalTitle;
+  }
+  sessionStore.set(sessionId, session);
+  safeWriteSessions();
+  res.json({ ok: true, title: finalTitle });
+});
+
+app.post("/api/wrong_mark", (req, res) => {
+  const { sessionId, markKey, status } = req.body || {};
+  if (!sessionId) return res.status(400).send("无效 sessionId。");
+  const session = sessionStore.get(sessionId);
+  if (!session) return res.status(400).send("无效 sessionId。");
+  const key = String(markKey || "").trim();
+  if (!key) return res.status(400).send("markKey 不能为空。");
+  const s = String(status || "").trim().toLowerCase();
+  if (!session.wrongMarks || typeof session.wrongMarks !== "object" || Array.isArray(session.wrongMarks)) {
+    session.wrongMarks = {};
+  }
+  if (!s || s === "none") {
+    delete session.wrongMarks[key];
+  } else if (s === "reviewed" || s === "mastered") {
+    session.wrongMarks[key] = s;
+  } else {
+    return res.status(400).send("status 仅支持 reviewed/mastered/none。");
+  }
+  sessionStore.set(sessionId, session);
+  safeWriteSessions();
+  res.json({ ok: true, markKey: key, status: session.wrongMarks[key] || "" });
+});
+
+app.post("/api/note_intent_status", (req, res) => {
+  try {
+    const { intent, sessionIds } = req.body || {};
+    const key = String(intent || "").trim().toUpperCase();
+    if (!["A", "B", "C", "D"].includes(key)) return res.status(400).send("intent 仅支持 A/B/C/D。");
+    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+    if (ids.length === 0) return res.status(400).send("sessionIds 不能为空。");
+
+    const cacheKey = buildNoteIntentKey(key, ids);
+    const cached = noteIntentCache.get(cacheKey);
+
+    let notesLen = 0;
+    for (const sid of ids) {
+      const s = sessionStore.get(sid);
+      if (!s) continue;
+      const notes = String(s.notesRaw || s.notes || "");
+      notesLen += notes.length;
+    }
+    notesLen = Math.min(8000, notesLen);
+    const etaMs = estimateNoteIntentEtaMs(key, notesLen);
+
+    if (cached?.items && Array.isArray(cached.items)) {
+      return res.json({
+        status: "cached",
+        intent: key,
+        cacheKey,
+        cachedAt: cached.createdAt || Date.now(),
+        lastDurationMs: cached.durationMs || 0,
+        etaMs: 200
+      });
+    }
+    if (cached?.pending) {
+      return res.json({
+        status: "pending",
+        intent: key,
+        cacheKey,
+        etaMs: Math.max(1500, etaMs)
+      });
+    }
+    return res.json({
+      status: "not_cached",
+      intent: key,
+      cacheKey,
+      etaMs
+    });
+  } catch (e) {
+    return res.status(500).send(e?.message || String(e));
+  }
+});
+
+app.post("/api/note_intent_content", (req, res) => {
+  try {
+    const { intent, sessionIds, apiKey: apiKeyFromReq, model: modelFromReq } = req.body || {};
+    const key = String(intent || "").trim().toUpperCase();
+    if (!["A", "B", "C", "D"].includes(key)) return res.status(400).send("intent 仅支持 A/B/C/D。");
+    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+    if (ids.length === 0) return res.status(400).send("sessionIds 不能为空。");
+
+    const cacheKey = buildNoteIntentKey(key, ids);
+    const cached = noteIntentCache.get(cacheKey);
+    if (cached && cached.intent === key && cached.pending) {
+      return res.json({ status: "pending", intent: key, cacheKey });
+    }
+    if (cached && cached.intent === key && cached.error) {
+      const msg = String(cached.error || "");
+      if (/JSON|Expected\s*','|array element|position\s+\d+/i.test(msg)) {
+        noteIntentCache.delete(cacheKey);
+      } else {
+      return res.json({ status: "error", intent: key, cacheKey, error: cached.error });
+      }
+    }
+    if (cached && cached.intent === key && Array.isArray(cached.items)) {
+      if (key === "A") {
+        const first = cached.items[0];
+        const ok = first && typeof first === "object" && typeof first.concept === "string" && typeof first.definition === "string";
+        if (!ok) {
+          noteIntentCache.delete(cacheKey);
+        } else {
+      const itemKeys = cached.items.map(it => noteItemKey(key, it));
+      const feedback = mergeNoteInsightFeedback(cacheKey, ids);
+      return res.json({
+        status: "ready",
+        intent: key,
+        cacheKey,
+        cachedAt: cached.createdAt || Date.now(),
+        lastDurationMs: cached.durationMs || 0,
+        warning: cached.warning || "",
+        items: cached.items,
+        itemKeys,
+        feedback
+      });
+        }
+      } else {
+        const itemKeys = cached.items.map(it => noteItemKey(key, it));
+        const feedback = mergeNoteInsightFeedback(cacheKey, ids);
+        return res.json({
+          status: "ready",
+          intent: key,
+          cacheKey,
+          cachedAt: cached.createdAt || Date.now(),
+          lastDurationMs: cached.durationMs || 0,
+          warning: cached.warning || "",
+          items: cached.items,
+          itemKeys,
+          feedback
+        });
+      }
+    }
+
+    if (noteIntentJobs.has(cacheKey)) {
+      return res.json({ status: "pending", intent: key });
+    }
+
+    const startAt = Date.now();
+    noteIntentCache.set(cacheKey, { intent: key, pending: true, createdAt: startAt });
+
+    const job = (async () => {
+      try {
+        const highlights = collectWrongHighlights(key, ids, 12);
+        const parts = [];
+        let apiKey = typeof apiKeyFromReq === "string" && apiKeyFromReq.trim().length >= 8 ? apiKeyFromReq.trim() : null;
+        let modelName = typeof modelFromReq === "string" && modelFromReq.trim().length > 0 ? modelFromReq.trim() : null;
+        for (const sid of ids) {
+          const s = sessionStore.get(sid);
+          if (!s) continue;
+          if (!apiKey && typeof s.apiKey === "string" && s.apiKey.trim().length >= 8) apiKey = s.apiKey.trim();
+          if (!modelName && s.model) modelName = s.model;
+          const title = s.chapterTitleOverride || s.chapterTitleDerived || s.lastPack?.meta?.chapter_title || "未命名章节";
+          const notes = String(s.notesRaw || s.notes || "").trim();
+          if (!notes) continue;
+          parts.push(`【${title}】\n${notes}`);
+        }
+        const combinedNotes = truncateNotesForModel(parts.join("\n\n"), 6500);
+        if (!apiKey) throw new Error("缺少有效的 API Key。请在前端输入并保存 Key 后再试。");
+        if (!modelName) modelName = "deepseek-chat";
+
+        const domainForLogic = detectDomainFromText(combinedNotes);
+        const logicStopSet = buildStopwordSet(domainForLogic);
+        const adaptiveForLogic = buildAdaptiveStopwordsFromNotes(combinedNotes, 10);
+        for (const w of adaptiveForLogic) logicStopSet.add(w);
+        const aStopSet = buildStopwordSet(domainForLogic);
+        for (const w of adaptiveForLogic) aStopSet.add(w);
+
+        const focusTemplate = {
+          A: "关注概念的“定义/边界/必要条件”，用反例检验边界。",
+          B: "关注条件变化：把“原条件 vs 变体条件”列成对照表，并给出结论。",
+          C: "关注题干陷阱：限定词/否定词/范围词/偷换概念，并给出排雷动作。",
+          D: "关注跨章连接：前置知识 + 本章规则如何拼接成推理链（推导结论）。"
+        }[key];
+
+        const schemaHint =
+          key === "B"
+            ? "输出 JSON：{ intent:'B', items:[{ original:'原条件', variant:'变体', conclusion:'结论' }, ...] }"
+            : (key === "D"
+              ? "输出 JSON：{ intent:'D', items:[{ prior:'前置知识', rule:'本章规则', derivation:'推导' }, ...] }"
+              : (key === "A"
+                ? "输出 JSON：{ intent:'A', items:[{ concept:'概念名', definition:'定义', boundary:'边界', necessary:'必要条件', counterexample:'反例' }, ...] }"
+                : "输出 JSON：{ intent:'C', items:[string, ...] }"));
+
+        const existingFeedback = mergeNoteInsightFeedback(cacheKey, ids);
+        const feedbackGood = [];
+        const feedbackBad = [];
+        if (existingFeedback && typeof existingFeedback === "object") {
+          const cur = noteIntentCache.get(cacheKey);
+          const curItems = Array.isArray(cur?.items) ? cur.items : [];
+          const curKeys = curItems.map(it => noteItemKey(key, it));
+          for (let i = 0; i < curItems.length; i++) {
+            const ik = curKeys[i];
+            const v = existingFeedback[ik];
+            if (v === "useful") feedbackGood.push(formatNoteItemForPrompt(key, curItems[i]));
+            if (v === "bad") feedbackBad.push(formatNoteItemForPrompt(key, curItems[i]));
+          }
+        }
+
+        const notesForPrompt = (() => {
+          if (key !== "A") return combinedNotes;
+          const picked = [];
+          for (const h of highlights || []) {
+            const t = String(h || "").trim();
+            if (!t) continue;
+            if (t.length < 2 || t.length > 12) continue;
+            picked.push(t);
+            if (picked.length >= 4) break;
+          }
+          if (picked.length < 2) {
+            const tokens = extractCnKeywords2to4(combinedNotes, aStopSet);
+            const freq = new Map();
+            for (const t of tokens) freq.set(t, (freq.get(t) || 0) + 1);
+            const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
+            for (const t of top) if (!picked.includes(t)) picked.push(t);
+          }
+          const snippets = buildCoreConceptSnippets(combinedNotes, picked.slice(0, 4), 2600);
+          return snippets ? `（已抽取与核心概念最相关的笔记片段，减少无关内容）\n\n${snippets}` : combinedNotes;
+        })();
+
+        const itemsCountLine =
+          key === "A" ? "- items 输出 3-5 条（每条是一个 concept 的成组信息）。"
+          : (key === "D" ? "- items 输出 4-8 条（每条一条推理链，尽量覆盖不同核心术语）。"
+            : "- items 输出 6-10 条；每个字段尽量短句（≤ 28 字）。");
+
+        const messages = [
+          { role: "system", content: "你只输出严格 JSON，不要 Markdown，不要多余解释。" },
+          {
+            role: "user",
+            content: [
+              "根据以下笔记，提炼学习要点。要求：",
+              `- ${schemaHint}`,
+              itemsCountLine,
+              "- B/D 的各字段必须是完整短句，不得只输出关键词。",
+              "- 只基于笔记，不要引入外部新知识。",
+              `- intent = ${key}；生成必须符合关注点：${focusTemplate}`,
+              highlights.length ? `- 这些是用户错题中高频关键词（尽量覆盖但不要生硬）：${highlights.join("、")}` : "",
+              feedbackGood.length ? `- 用户觉得“有用”的表达（尽量靠近这种风格）：${feedbackGood.slice(0, 2).join("；")}` : "",
+              feedbackBad.length ? `- 用户觉得“不通/无用”的表达（避免类似风格）：${feedbackBad.slice(0, 2).join("；")}` : "",
+              "- 如果无法确定，就输出最保守、最通用的版本，不要编造。",
+              "- 禁止出题：不要疑问句，不要出现“下列/哪项/正确的是/A./B.”等选项形式。",
+              "- A（核心概念）必须围绕同一概念成组输出：同一 concept 的定义/边界/必要条件/反例要彼此一致，反例必须违反边界或必要条件。",
+              "- A 输出必须是完整、严谨的短句：definition ≤ 40 字；boundary ≤ 45 字；necessary ≤ 45 字；counterexample ≤ 45 字。",
+              "- A 禁止使用“…”或省略号结尾，每句话必须有完整的句式和终点。",
+              "- A 建议句式：定义以“是/指/由于”开头；边界以“涉及/不涉及”开头；必要条件以“必须/需要”开头；反例以“X…因此不属于…”结尾。",
+              "- D（知识联结）每条推理链必须逻辑连贯：prior 与 rule 必须共享同一核心术语，derivation 必须明确用“因此/所以/从而/进而”等连接词推出结论。",
+              "- D 生成时：每条链都要有一个清晰的“核心术语”（2-6个字名词短语），不同链尽量用不同核心术语；不要把多条链合并成一条。",
+              "",
+              "笔记：",
+              notesForPrompt
+            ].filter(Boolean).join("\n")
+          }
+        ];
+
+        const validator =
+          key === "B" ? validateNoteIntentB
+          : (key === "D" ? validateNoteIntentD : (key === "A" ? validateNoteIntentA : validateNoteIntentAorC));
+
+        const runOnce = async (extraLines = []) => {
+          const user = messages.find(m => m.role === "user");
+          const baseContent = String(user?.content || "");
+          const content = extraLines.length ? `${baseContent}\n\n${extraLines.join("\n")}` : baseContent;
+          const msgs = messages.map(m => (m.role === "user" ? { ...m, content } : m));
+          return await chatJson({
+            session: null,
+            messages: msgs,
+            validator,
+            what: "note_intent_content",
+            apiKey,
+            model: modelName,
+            maxTokens: key === "A" ? 850 : 1000
+          });
+        };
+
+        let data = await runOnce();
+
+        const postprocess = (d) => {
+          let items = [];
+          let warning = "";
+          if (!Array.isArray(d?.items)) return items;
+          if (key === "B") {
+            items = d.items
+              .map(x => ({
+                original: String(x?.original || "").trim(),
+                variant: String(x?.variant || "").trim(),
+                conclusion: String(x?.conclusion || "").trim()
+              }))
+              .filter(x => x.original.length >= 6 && x.variant.length >= 4 && x.conclusion.length >= 6)
+              .slice(0, 12);
+          } else if (key === "D") {
+            const overlapCount = (a, b) => {
+              let n = 0;
+              for (const t of a) if (b.has(t)) n += 1;
+              return n;
+            };
+            const tokens6 = (s) => {
+              const raw = String(s || "").match(/[\u4e00-\u9fff]{2,6}/g) || [];
+              const out = new Set();
+              for (const t of raw) {
+                const tok = String(t || "").trim();
+                if (!tok) continue;
+                if (logicStopSet.has(tok)) continue;
+                if (/^(.)\1+$/.test(tok)) continue;
+                out.add(tok);
+              }
+              return out;
+            };
+
+            const strict = d.items
+              .map(x => ({
+                prior: String(x?.prior || "").trim(),
+                rule: String(x?.rule || "").trim(),
+                derivation: String(x?.derivation || "").trim()
+              }))
+              .filter(x => x.prior.length >= 6 && x.rule.length >= 6 && x.derivation.length >= 6)
+              .filter(x => /(因此|所以|从而|进而|故)/.test(x.derivation))
+              .filter(x => {
+                const t1 = tokens6(x.prior);
+                const t2 = tokens6(x.rule);
+                const t3 = tokens6(x.derivation);
+                const o12 = overlapCount(t1, t2);
+                const o23 = overlapCount(t2, t3);
+                return o12 >= 1 && o23 >= 1;
+              })
+              .slice(0, 12);
+            if (strict.length >= 2) {
+              items = strict;
+            } else {
+              const relaxed = d.items
+                .map(x => ({
+                  prior: String(x?.prior || "").trim(),
+                  rule: String(x?.rule || "").trim(),
+                  derivation: String(x?.derivation || "").trim()
+                }))
+                .filter(x => x.prior.length >= 6 && x.rule.length >= 6 && x.derivation.length >= 6)
+                .filter(x => {
+                  const t1 = tokens6(x.prior);
+                  const t2 = tokens6(x.rule);
+                  const t3 = tokens6(x.derivation);
+                  const o12 = overlapCount(t1, t2);
+                  const o23 = overlapCount(t2, t3);
+                  const o13 = overlapCount(t1, t3);
+                  return o12 >= 1 || o23 >= 1 || o13 >= 1;
+                })
+                .slice(0, 12);
+              items = relaxed;
+              warning = items.length ? "推理链可能不完全连贯，可用“有用/不通”反馈校正" : "";
+            }
+            if (items.length === 0) throw new Error("知识联结提炼暂无可用结果，请稍后重试");
+          } else if (key === "A") {
+            items = d.items
+              .map(x => ({
+                concept: shortenCn(String(x?.concept || ""), 10),
+                definition: shortenCn(String(x?.definition || ""), 28),
+                boundary: shortenCn(String(x?.boundary || ""), 32),
+                necessary: shortenCn(String(x?.necessary || ""), 32),
+                counterexample: shortenCn(String(x?.counterexample || ""), 32)
+              }))
+              .filter(x => x.concept.length >= 2 && x.definition.length >= 4 && x.boundary.length >= 4 && x.necessary.length >= 4 && x.counterexample.length >= 4)
+              .slice(0, 5);
+            if (items.length === 0) throw new Error("核心概念提炼无有效输出，请稍后重试");
+          } else {
+            const raw = d.items
+              .map(s => String(s || "").trim())
+              .filter(Boolean);
+
+            const isQuestionLike = (s) => {
+              const t = String(s || "");
+              if (!t) return false;
+              if (/[？?]$/.test(t)) return true;
+              if (/(下列|以下|哪项|哪些|正确的是|选择题|单选|多选|判断题)/.test(t)) return true;
+              if (/\bA\./.test(t) || /\bB\./.test(t) || /\bC\./.test(t) || /\bD\./.test(t)) return true;
+              return false;
+            };
+
+            const filtered = raw.filter(s => !isQuestionLike(s));
+
+            items = filtered.slice(0, 12);
+          }
+          return { items, warning };
+        };
+
+        let items;
+        let warning = "";
+        try {
+          const out = postprocess(data);
+          items = out.items;
+          warning = out.warning || "";
+          if (key === "D" && items.length > 0 && items.length < 3) {
+            const more = await runOnce([
+              "补充要求：你上一版推理链数量太少。请补足到至少 4 条。",
+              "- 每条链围绕不同核心术语（2-6 个字名词短语）。",
+              "- prior 与 rule 必须共享该核心术语；derivation 必须显式推出结论。",
+              "- 不要把多条链写成一条长链。"
+            ]);
+            const out2 = postprocess(more);
+            if (Array.isArray(out2?.items) && out2.items.length) {
+              items = out2.items;
+              warning = out2.warning || warning;
+            }
+            if (items.length < 3 && !warning) warning = "仅提炼到少量推理链，可能笔记里的跨章连接点不多";
+          }
+        } catch (e) {
+          if (key === "A") {
+            data = await runOnce([
+              "补充要求（必须满足，否则输出无效）：",
+              "- 必须严格输出结构化 items：[{ concept, definition, boundary, necessary, counterexample }...]",
+              "- 至少输出 2 个 concept（除非笔记只够 1 个）。",
+              "- 每个 concept 的 4 个字段必须互相指向同一个概念，不得东拼西凑。",
+              "- 反例必须明确说明为何不满足边界或必要条件。"
+            ]);
+            const out = postprocess(data);
+            items = out.items;
+            warning = out.warning || "";
+          } else if (key === "D") {
+            data = await runOnce([
+              "补充要求（必须满足，否则输出无效）：",
+              "- 每条必须是严格三段链：prior(前置知识) → rule(本章规则) → derivation(推导结论)。",
+              "- 三段必须共享同一核心术语（同一个名词短语），不要换同义词，不要跳跃。",
+              "- derivation 必须以“因此/所以/从而/进而/故”之一开头并推出结论。",
+              "- items 请输出 4-8 条，不要只输出 1 条。",
+              "- 只输出 JSON，不要解释。"
+            ]);
+            const out = postprocess(data);
+            items = out.items;
+            warning = out.warning || "";
+          } else {
+            throw e;
+          }
+        }
+
+        noteIntentCache.set(cacheKey, { intent: key, items, createdAt: Date.now(), highlights, durationMs: Date.now() - startAt, warning });
+      } catch (e) {
+        noteIntentCache.set(cacheKey, { intent: key, items: [], createdAt: Date.now(), highlights: [], error: e?.message || String(e) });
+      }
+    })();
+
+    const timeoutMs = 65000;
+    const timedJob = Promise.race([
+      job,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("note_intent_content timeout")), timeoutMs))
+    ])
+      .catch((e) => {
+        const existed = noteIntentCache.get(cacheKey);
+        if (!existed || existed.pending) {
+          noteIntentCache.set(cacheKey, { intent: key, pending: true, createdAt: existed?.createdAt || Date.now() });
+        }
+      })
+      .finally(() => noteIntentJobs.delete(cacheKey));
+
+    noteIntentJobs.set(cacheKey, timedJob);
+    return res.json({ status: "pending", intent: key, cacheKey });
+  } catch (e) {
+    return res.status(500).send(e?.message || String(e));
+  }
+});
+
+app.post("/api/note_intent_feedback", (req, res) => {
+  try {
+    const { intent, sessionIds, cacheKey: cacheKeyFromReq, itemKey, value } = req.body || {};
+    const key = String(intent || "").trim().toUpperCase();
+    if (!["A", "B", "C", "D"].includes(key)) return res.status(400).send("intent 仅支持 A/B/C/D。");
+    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+    if (ids.length === 0) return res.status(400).send("sessionIds 不能为空。");
+    const ck = String(cacheKeyFromReq || "").trim() || buildNoteIntentKey(key, ids);
+    const ik = String(itemKey || "").trim();
+    const v = String(value || "").trim();
+    if (!ik) return res.status(400).send("itemKey 不能为空。");
+    if (!["useful", "bad"].includes(v)) return res.status(400).send("value 仅支持 useful/bad。");
+
+    const ts = Date.now();
+    for (const sid of ids) {
+      const s = sessionStore.get(sid);
+      if (!s) continue;
+      if (!s.noteInsightFeedback || typeof s.noteInsightFeedback !== "object") s.noteInsightFeedback = {};
+      if (!s.noteInsightFeedback[ck] || typeof s.noteInsightFeedback[ck] !== "object") s.noteInsightFeedback[ck] = {};
+      s.noteInsightFeedback[ck][ik] = { value: v, ts };
+      sessionStore.set(sid, s);
+    }
+    safeWriteSessions();
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).send(e?.message || String(e));
+  }
+});
  
  app.post("/api/sync_history", (req, res) => {
    const { sessionId, results, quiz } = req.body || {};
@@ -1840,9 +3225,23 @@ app.post("/api/wrong_questions", (req, res) => {
    res.json({ ok: true });
  });
  
+app.post("/api/delete_session", (req, res) => {
+  const { sessionId } = req.body || {};
+  if (!sessionId) return res.status(400).send("无效 sessionId。");
+  const sid = String(sessionId);
+  sessionStore.delete(sid);
+  try {
+    const notePath = path.join(NOTES_DIR, `${sid}.txt`);
+    if (fs.existsSync(notePath)) fs.unlinkSync(notePath);
+  } catch {}
+  safeWriteSessions();
+  res.json({ ok: true });
+});
+
  app.post("/api/reset", (req, res) => {
   const { sessionId } = req.body || {};
-  sessionStore.delete(sessionId);
+ if (sessionId) sessionStore.delete(String(sessionId));
+ safeWriteSessions();
   res.json({ ok: true });
 });
 
@@ -1857,9 +3256,7 @@ function startServer(preferredPort) {
       const actualPort = addr && typeof addr === "object" ? addr.port : port;
       const url = `http://127.0.0.1:${actualPort}`;
       console.log(`Trainer backend running on ${url}`);
-      console.log("Using DeepSeek OpenAI-compatible mode:");
-      console.log("  baseURL =", BASE_URL);
-      console.log("  model   =", MODEL);
+      console.log("Supported AI Models: DeepSeek-V3, Qwen-Max, Qwen-Plus");
       if (process.env.NO_OPEN !== "1") {
         try { open(url); } catch {}
       }
