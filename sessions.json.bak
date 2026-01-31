@@ -648,7 +648,11 @@
   },
   {
     "id": "e512bca4-1cc2-48f9-927c-8f5adba6943e",
-    "round": 7,
+    "model": "qwen-plus",
+    "chapterTitleDerived": "Whether it's a vacation or a",
+    "chapterTitleOverride": "",
+    "wrongMarks": {},
+    "round": 2,
     "difficultyState": {
       "level": 0
     },
@@ -656,814 +660,6 @@
       {
         "round": 1,
         "accuracy": 0,
-        "total": 6,
-        "correct": 0,
-        "quiz": {
-          "meta": {
-            "subject": "未知科目",
-            "chapter_title": "未知章节",
-            "version_hash": "v1",
-            "created_at": "2026-01-29T16:08:26.056Z",
-            "timebox_minutes": 15
-          },
-          "extracted": {
-            "core_concepts": [
-              "猫甲亢的流行病学特征（老年猫高发，雌猫易感）",
-              "主要病因（甲状腺腺瘤/增生，良性为主）",
-              "典型临床表现（高代谢症状、心血管症状、消化系统症状）",
-              "关键诊断方法（TT4/fT4检测、甲状腺触诊、超声）",
-              "主要治疗方案比较（药物、放射性碘、手术、饮食疗法）"
-            ],
-            "core_claims": [],
-            "likely_misconceptions": [],
-            "prior_links": []
-          },
-          "questions": [
-            {
-              "id": "q_0",
-              "type": "single",
-              "intent": "A",
-              "stem": "根据笔记内容，关于猫甲状腺功能亢进症的流行病学特征，下列哪项描述是正确的？",
-              "options": [
-                "暹罗猫和喜马拉雅猫的发病率相对较高",
-                "绝大多数病例年龄在8岁以下",
-                "雌猫比公猫更易患病，比例约为1:4-6",
-                "全球发病率稳定在1.5%左右，无逐年增加趋势"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确指出‘雌猫比公猫更易患此病，比例约为1:4-6’。A错误，暹罗猫和喜马拉雅猫发病率较低；B错误，95%病例年龄超过10岁；D错误，报告发病率呈逐年增加态势。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_1",
-              "type": "single",
-              "intent": "B",
-              "stem": "一名12岁家养短毛猫出现多食、消瘦、心率>200次/分钟、被毛蓬乱等症状。兽医师触诊发现颈部有质地坚硬的结节。为确诊甲亢，下一步最敏感的单次实验室检查是什么？",
-              "options": [
-                "血清总甲状腺素(TT4)检测",
-                "血清游离甲状腺素(fT4)检测",
-                "促甲状腺激素(TSH)检测",
-                "常规血液生化检测（如肝酶、肌酐）"
-              ],
-              "concept": "通用",
-              "rationale": "笔记指出，游离甲状腺素(fT4)检测敏感性更高(约98%)，尤其适用于TT4处于临界值或正常范围但临床高度怀疑的病例。虽然TT4是常规筛查，但题干问的是‘最敏感的单次检查’，因此fT4更合适。TSH和常规生化是辅助指标。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_2",
-              "type": "single",
-              "intent": "C",
-              "stem": "关于猫甲亢的临床表现，以下哪种情况属于需要警惕的非典型症状，容易被误诊？",
-              "options": [
-                "体重下降伴食欲增强",
-                "心动过速和心杂音",
-                "呕吐和腹泻",
-                "嗜睡、厌食和精神沉郁"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确将‘嗜睡、厌食、精神沉郁、体乏无力等’列为非典型症状，并指出这可能与老年猫生理变化或合并其他疾病有关，容易被误诊。A、B、C均为典型的高代谢和交感神经兴奋症状。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "D"
-              }
-            },
-            {
-              "id": "q_3",
-              "type": "single",
-              "intent": "D",
-              "stem": "比较猫甲亢的不同治疗方案，以下关于放射性碘(I-131)治疗的描述，哪一项是错误的？",
-              "options": [
-                "其原理是I-131释放的β射线能选择性破坏甲状腺腺泡上皮",
-                "一次治疗治愈率可达50-80%，二次治疗后可达80%以上",
-                "治疗后甲状腺功能减退（甲减）的发生率极低，可忽略不计",
-                "治疗前需要停用抗甲状腺药物（如甲巯咪唑）"
-              ],
-              "concept": "通用",
-              "rationale": "C项描述错误。笔记明确指出放射性碘治疗后‘可能出现甲状腺功能减退’，且‘永久性甲减发生率每年递增1-3%，5年后达30%，10年后达40-70%’，发生率并不低。A、B、D项描述均与笔记内容相符。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_4",
-              "type": "tf",
-              "intent": "A",
-              "stem": "判断题：猫甲亢主要由甲状腺恶性肿瘤引起，绝大多数病例为恶性病变。",
-              "options": [
-                "正确",
-                "错误"
-              ],
-              "concept": "通用",
-              "rationale": "错误。笔记明确指出‘猫甲亢主要由甲状腺腺瘤或甲状腺增生引起，98%-99%的病例为良性病变，恶性肿瘤约占1%—2%’。因此，绝大多数是良性病变。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "F"
-              }
-            },
-            {
-              "id": "q_5",
-              "type": "short",
-              "intent": "B",
-              "stem": "填空题：笔记中提到，猫甲亢的鉴别诊断需要考虑慢性肾病(CKD)，因为约______%的老年猫患氮质血症型CKD，其症状与甲亢有相似之处。",
-              "options": [],
-              "concept": "通用",
-              "rationale": "笔记在‘鉴别诊断’部分明确写道：‘慢性肾病(CKD)在老年猫中发病率高(约30%患氮质血症型CKD)，其症状与甲亢相似，但治疗方向不同’。因此答案为30%。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "keywords",
-                "value": [
-                  "30"
-                ]
-              }
-            }
-          ],
-          "scoring": {
-            "objective_rules": "每题 1 分",
-            "short_rules": {}
-          },
-          "stop_rules": {
-            "stable_if": {
-              "A_pass": true,
-              "B_pass": true,
-              "min_questions": 3
-            },
-            "unstable_if": {
-              "A_fail_count": 2,
-              "min_questions": 2
-            },
-            "messages": {
-              "stable": "恭喜！您已掌握本章核心内容。建议回顾易错点，巩固学习成果。",
-              "unstable": "检测到对核心概念（A类意图）理解不稳定。请仔细复习笔记中的流行病学、诊断关键和治疗方案比较部分。",
-              "invalid": "输入内容无法生成有效的练习题目。请提供更具体或结构更清晰的笔记内容。"
-            }
-          },
-          "ui_hints": {
-            "render_mode": "one_by_one",
-            "hide_total_count": true
-          }
-        },
-        "results": [
-          {
-            "id": "q_0",
-            "isCorrect": false,
-            "userAns": "A",
-            "correctAns": "C",
-            "rationale": "笔记明确指出‘雌猫比公猫更易患此病，比例约为1:4-6’。A错误，暹罗猫和喜马拉雅猫发病率较低；B错误，95%病例年龄超过10岁；D错误，报告发病率呈逐年增加态势。"
-          },
-          {
-            "id": "q_1",
-            "isCorrect": false,
-            "userAns": "A",
-            "correctAns": "B",
-            "rationale": "笔记指出，游离甲状腺素(fT4)检测敏感性更高(约98%)，尤其适用于TT4处于临界值或正常范围但临床高度怀疑的病例。虽然TT4是常规筛查，但题干问的是‘最敏感的单次检查’，因此fT4更合适。TSH和常规生化是辅助指标。"
-          },
-          {
-            "id": "q_2",
-            "isCorrect": true,
-            "userAns": "D",
-            "correctAns": "D",
-            "rationale": "笔记明确将‘嗜睡、厌食、精神沉郁、体乏无力等’列为非典型症状，并指出这可能与老年猫生理变化或合并其他疾病有关，容易被误诊。A、B、C均为典型的高代谢和交感神经兴奋症状。"
-          },
-          {
-            "id": "q_3",
-            "isCorrect": false,
-            "userAns": "A",
-            "correctAns": "C",
-            "rationale": "C项描述错误。笔记明确指出放射性碘治疗后‘可能出现甲状腺功能减退’，且‘永久性甲减发生率每年递增1-3%，5年后达30%，10年后达40-70%’，发生率并不低。A、B、D项描述均与笔记内容相符。"
-          },
-          {
-            "id": "q_4",
-            "isCorrect": true,
-            "userAns": "F",
-            "correctAns": "F",
-            "rationale": "错误。笔记明确指出‘猫甲亢主要由甲状腺腺瘤或甲状腺增生引起，98%-99%的病例为良性病变，恶性肿瘤约占1%—2%’。因此，绝大多数是良性病变。"
-          },
-          {
-            "id": "q_5",
-            "isCorrect": true,
-            "userAns": "30",
-            "correctAns": [
-              "30"
-            ],
-            "rationale": "笔记在‘鉴别诊断’部分明确写道：‘慢性肾病(CKD)在老年猫中发病率高(约30%患氮质血症型CKD)，其症状与甲亢相似，但治疗方向不同’。因此答案为30%。"
-          }
-        ],
-        "syncedAt": "2026-01-29T16:09:30.963Z"
-      },
-      {
-        "round": 2,
-        "accuracy": 0,
-        "total": 6,
-        "correct": 0,
-        "quiz": {
-          "meta": {
-            "subject": "未知科目",
-            "chapter_title": "未知章节",
-            "version_hash": "v1",
-            "created_at": "2026-01-30T14:37:09.716Z",
-            "timebox_minutes": 15
-          },
-          "extracted": {
-            "core_concepts": [
-              "猫甲亢流行病学特征（老年猫高发、性别比例、品种差异）",
-              "发病机制（甲状腺腺瘤/增生、环境化学物质PBDEs/PCBs、饮食因素）",
-              "临床表现（典型高代谢症状、非典型症状、心血管/消化/皮肤/神经症状）",
-              "诊断方法（触诊、TT4/fT4检测、超声/核素扫描、鉴别诊断）",
-              "治疗方案比较（药物/放射性碘/手术/饮食疗法的优缺点与适应症）"
-            ],
-            "core_claims": [],
-            "likely_misconceptions": [],
-            "prior_links": []
-          },
-          "questions": [
-            {
-              "id": "q_0",
-              "type": "single",
-              "intent": "A",
-              "stem": "根据笔记内容，关于猫甲亢流行病学的描述，以下哪项是正确的？",
-              "options": [
-                "公猫比雌猫更易患病，比例约为4-6:1",
-                "暹罗猫和喜马拉雅猫的发病率相对较高",
-                "约95%的病例年龄超过10岁，但仍有2-3%病例出现在8岁以下猫中",
-                "全球发病率稳定在1.5%左右，无逐年增加趋势"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确提到“95%的病例年龄超过10岁”和“有约2-3%的病例可能出现在8岁以下的猫中”。A错误，应为雌猫更易患（比例1:4-6）；B错误，暹罗猫和喜马拉雅猫发病率较低；D错误，报告发病率呈逐年增加态势。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_1",
-              "type": "single",
-              "intent": "B",
-              "stem": "一名兽医师触诊发现一只老年猫甲状腺两侧对称性肿大，质地柔软有弹性。根据笔记，这最可能提示哪种病变类型？",
-              "options": [
-                "甲状腺恶性肿瘤",
-                "甲状腺结节性肿大",
-                "甲状腺弥漫性肿大",
-                "异位甲状腺组织"
-              ],
-              "concept": "通用",
-              "rationale": "笔记在“临床检查”部分指出：“触诊可发现甲状腺结节性肿大者多呈现两侧不对称、单个或多个结节，质地坚硬；弥漫性肿大多为两侧对称，腺体质软有弹性”。题干描述符合弥漫性肿大的特征。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_2",
-              "type": "single",
-              "intent": "C",
-              "stem": "关于猫甲亢的诊断，以下哪种说法是错误的？",
-              "options": [
-                "血清总甲状腺素(TT4)检测是常规筛查方法，90-95%的甲亢猫TT4水平升高",
-                "游离甲状腺素(fT4)检测敏感性约为98%，适用于TT4临界或正常但临床高度怀疑的病例",
-                "促甲状腺激素(TSH)检测在猫甲亢中通常显著升高，是确诊的关键指标",
-                "甲状腺闪烁扫描中，若甲状腺与唾液腺(T:S)比值>1.5可确诊甲亢"
-              ],
-              "concept": "通用",
-              "rationale": "C错误。笔记明确指出“促甲状腺激素(TSH)检测在猫甲亢中通常降低或无法检测到，可作为辅助诊断指标”，而非“显著升高”。A、B、D均为笔记中正确的诊断方法描述。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_3",
-              "type": "single",
-              "intent": "D",
-              "stem": "对于一只合并严重慢性肾病(CKD)的老年甲亢猫，在选择初始治疗方案时，最需要考虑哪个方案的优点？",
-              "options": [
-                "放射性碘治疗的一次治疗高治愈率",
-                "手术治疗后可迅速缓解症状",
-                "药物治疗是唯一可在家管理且适用于合并严重肾病的方案",
-                "饮食疗法可完全控制严重甲亢且无需监测"
-              ],
-              "concept": "通用",
-              "rationale": "笔记在“药物治疗”优点中明确指出“适用于老年猫或合并严重肾病的病例”。A、B虽然分别是放射性碘和手术的优点，但笔记未特别强调它们对合并严重CKD的适用性。D错误，饮食疗法“可能无法完全控制严重甲亢”且需长期坚持。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_4",
-              "type": "tf",
-              "intent": "A",
-              "stem": "判断：猫甲亢主要由甲状腺恶性肿瘤引起，约占98%-99%的病例。",
-              "options": [
-                "正确",
-                "错误"
-              ],
-              "concept": "通用",
-              "rationale": "错误。笔记在“发病机制”中明确指出：“猫甲亢主要由甲状腺腺瘤或甲状腺增生引起，98%-99%的病例为良性病变，恶性肿瘤约占1%—2%”。因此，主要原因是良性病变，而非恶性肿瘤。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "F"
-              }
-            },
-            {
-              "id": "q_5",
-              "type": "short",
-              "intent": "B",
-              "stem": "根据笔记，猫甲亢的典型心血管系统症状包括：（请列出至少三个关键词）",
-              "options": [],
-              "concept": "通用",
-              "rationale": "笔记在“心血管系统症状”中明确列出：心动过速(>200次/分钟)、奔马律、心杂音、高血压(收缩压>160 mmHg)、左心室肥大。答出其中任意三个即可。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "keywords",
-                "value": [
-                  "心动过速",
-                  "奔马律",
-                  "心杂音",
-                  "高血压",
-                  "左心室肥大"
-                ]
-              }
-            }
-          ],
-          "scoring": {
-            "objective_rules": "每题 1 分",
-            "short_rules": {}
-          },
-          "stop_rules": {
-            "stable_if": {
-              "A_pass": true,
-              "B_pass": true,
-              "min_questions": 3
-            },
-            "unstable_if": {
-              "A_fail_count": 2,
-              "min_questions": 2
-            },
-            "messages": {
-              "stable": "恭喜！您已掌握本章核心内容。建议回顾易错点，巩固学习成果。",
-              "unstable": "检测到对核心概念（A类题）理解不稳定。请重点复习笔记中的流行病学、诊断和治疗方案比较部分。",
-              "invalid": "输入内容无法生成有效的练习题目。请提供更完整的章节笔记。"
-            }
-          },
-          "ui_hints": {
-            "render_mode": "one_by_one",
-            "hide_total_count": true
-          }
-        },
-        "results": [
-          {
-            "id": "q_0",
-            "isCorrect": false,
-            "userAns": "A",
-            "correctAns": "C",
-            "rationale": "笔记明确提到“95%的病例年龄超过10岁”和“有约2-3%的病例可能出现在8岁以下的猫中”。A错误，应为雌猫更易患（比例1:4-6）；B错误，暹罗猫和喜马拉雅猫发病率较低；D错误，报告发病率呈逐年增加态势。"
-          },
-          {
-            "id": "q_1",
-            "isCorrect": false,
-            "userAns": "B",
-            "correctAns": "C",
-            "rationale": "笔记在“临床检查”部分指出：“触诊可发现甲状腺结节性肿大者多呈现两侧不对称、单个或多个结节，质地坚硬；弥漫性肿大多为两侧对称，腺体质软有弹性”。题干描述符合弥漫性肿大的特征。"
-          },
-          {
-            "id": "q_2",
-            "isCorrect": true,
-            "userAns": "C",
-            "correctAns": "C",
-            "rationale": "C错误。笔记明确指出“促甲状腺激素(TSH)检测在猫甲亢中通常降低或无法检测到，可作为辅助诊断指标”，而非“显著升高”。A、B、D均为笔记中正确的诊断方法描述。"
-          },
-          {
-            "id": "q_3",
-            "isCorrect": false,
-            "userAns": "A",
-            "correctAns": "C",
-            "rationale": "笔记在“药物治疗”优点中明确指出“适用于老年猫或合并严重肾病的病例”。A、B虽然分别是放射性碘和手术的优点，但笔记未特别强调它们对合并严重CKD的适用性。D错误，饮食疗法“可能无法完全控制严重甲亢”且需长期坚持。"
-          },
-          {
-            "id": "q_4",
-            "isCorrect": true,
-            "userAns": "F",
-            "correctAns": "F",
-            "rationale": "错误。笔记在“发病机制”中明确指出：“猫甲亢主要由甲状腺腺瘤或甲状腺增生引起，98%-99%的病例为良性病变，恶性肿瘤约占1%—2%”。因此，主要原因是良性病变，而非恶性肿瘤。"
-          },
-          {
-            "id": "q_5",
-            "isCorrect": false,
-            "userAns": "不知道",
-            "correctAns": [
-              "心动过速",
-              "奔马律",
-              "心杂音",
-              "高血压",
-              "左心室肥大"
-            ],
-            "rationale": "笔记在“心血管系统症状”中明确列出：心动过速(>200次/分钟)、奔马律、心杂音、高血压(收缩压>160 mmHg)、左心室肥大。答出其中任意三个即可。"
-          }
-        ],
-        "syncedAt": "2026-01-30T14:38:06.183Z"
-      },
-      {
-        "round": 3,
-        "accuracy": 0,
-        "total": 5,
-        "correct": 0,
-        "quiz": {
-          "meta": {
-            "subject": "未知科目",
-            "chapter_title": "1 流行病学",
-            "version_hash": "v1",
-            "created_at": "2026-01-31T08:51:36.461Z",
-            "timebox_minutes": 15
-          },
-          "extracted": {
-            "core_concepts": [],
-            "core_claims": [],
-            "likely_misconceptions": [],
-            "prior_links": []
-          },
-          "questions": [
-            {
-              "id": "q_0",
-              "type": "single",
-              "intent": "A",
-              "stem": "根据笔记内容，关于猫甲亢流行病学的描述，以下哪项是正确的？",
-              "options": [
-                "暹罗猫和喜马拉雅猫的发病率相对较高",
-                "雌猫比公猫更易患此病，比例约为1:4-6",
-                "所有病例均出现在8岁以上的猫中",
-                "全球范围内，约1.5%—11.4%的所有年龄猫可能罹患该病"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确指出雌猫比公猫更易患此病，比例约为1:4-6。A错误，暹罗猫和喜马拉雅猫发病率较低；C错误，有约2-3%的病例出现在8岁以下；D错误，发病率数据是针对老年猫。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_1",
-              "type": "single",
-              "intent": "B",
-              "stem": "关于猫甲亢的发病机制，以下哪项描述与笔记内容不符？",
-              "options": [
-                "猫甲亢主要由甲状腺腺瘤或甲状腺增生引起",
-                "恶性肿瘤约占病例的10%-20%",
-                "环境中的多溴联苯醚(PBDEs)与猫甲亢的发生密切相关",
-                "甲状腺激素分泌过多会导致机体代谢率异常升高"
-              ],
-              "concept": "通用",
-              "rationale": "笔记指出98%-99%的病例为良性病变，恶性肿瘤仅占1%—2%。B选项的10%-20%与笔记不符。A、C、D均为笔记中关于病因和机制的准确描述。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_2",
-              "type": "single",
-              "intent": "C",
-              "stem": "诊断猫甲亢时，以下哪项实验室检查结果最不可能出现在典型的甲亢猫中？",
-              "options": [
-                "血清总甲状腺素(TT4)水平升高",
-                "促甲状腺激素(TSH)水平升高",
-                "肝酶活性(ALT、AST)增加",
-                "血细胞比容(PCV)升高"
-              ],
-              "concept": "通用",
-              "rationale": "笔记指出，甲亢猫的TSH通常降低或无法检测到。因此，TSH升高不符合典型甲亢表现。A、C、D均为笔记中提到的甲亢猫可能出现的实验室变化。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_3",
-              "type": "multi",
-              "intent": "D",
-              "stem": "关于猫甲亢的治疗方案比较，以下哪项陈述是正确的？",
-              "options": [
-                "放射性碘治疗是目前首选的根治性方案",
-                "药物治疗的治愈率很高，可达80%以上",
-                "低碘处方粮单独使用对控制严重甲亢效果有限",
-                "手术治疗前通常需要用抗甲状腺药物控制甲亢状态"
-              ],
-              "concept": "通用",
-              "rationale": "A正确，笔记指出放射性碘治疗是首选根治方案。B错误，药物治疗治愈率低（约40%）。C正确，笔记指出低碘粮单独使用效果有限。D正确，笔记提到手术前需用药物控制甲亢。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "set",
-                "value": [
-                  "A",
-                  "C",
-                  "D"
-                ]
-              }
-            },
-            {
-              "id": "q_4",
-              "type": "single",
-              "intent": "C",
-              "stem": "猫甲亢的典型临床表现包括高代谢状态和交感神经兴奋性增高。以下症状中，哪一项属于笔记中提到的非典型症状？",
-              "options": [
-                "体重明显下降但食欲增强",
-                "心率加快（通常超过160次/分钟）",
-                "嗜睡、厌食、精神沉郁",
-                "被毛蓬乱、粗糙、无光泽"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确指出，部分老年猫可能呈现非典型症状，如嗜睡、厌食、精神沉郁等。A、B、D均为笔记中列举的典型症状。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            }
-          ],
-          "scoring": {
-            "objective_rules": "每题 1 分",
-            "short_rules": {}
-          },
-          "stop_rules": {
-            "stable_if": {
-              "A_pass": true,
-              "B_pass": true,
-              "min_questions": 3
-            },
-            "unstable_if": {
-              "A_fail_count": 2,
-              "min_questions": 2
-            },
-            "messages": {
-              "stable": "恭喜！您已掌握本章核心内容。",
-              "unstable": "部分核心概念掌握不牢，建议回顾笔记后再试。",
-              "invalid": "输入无效，请检查。"
-            }
-          },
-          "ui_hints": {
-            "render_mode": "one_by_one",
-            "hide_total_count": true
-          }
-        },
-        "results": [
-          {
-            "id": "q_0",
-            "isCorrect": true,
-            "userAns": "B",
-            "correctAns": "B",
-            "rationale": "笔记明确指出雌猫比公猫更易患此病，比例约为1:4-6。A错误，暹罗猫和喜马拉雅猫发病率较低；C错误，有约2-3%的病例出现在8岁以下；D错误，发病率数据是针对老年猫。"
-          },
-          {
-            "id": "q_1",
-            "isCorrect": true,
-            "userAns": "B",
-            "correctAns": "B",
-            "rationale": "笔记指出98%-99%的病例为良性病变，恶性肿瘤仅占1%—2%。B选项的10%-20%与笔记不符。A、C、D均为笔记中关于病因和机制的准确描述。"
-          },
-          {
-            "id": "q_2",
-            "isCorrect": false,
-            "userAns": "D",
-            "correctAns": "B",
-            "rationale": "笔记指出，甲亢猫的TSH通常降低或无法检测到。因此，TSH升高不符合典型甲亢表现。A、C、D均为笔记中提到的甲亢猫可能出现的实验室变化。"
-          },
-          {
-            "id": "q_3",
-            "isCorrect": true,
-            "userAns": [
-              "A",
-              "C",
-              "D"
-            ],
-            "correctAns": [
-              "A",
-              "C",
-              "D"
-            ],
-            "rationale": "A正确，笔记指出放射性碘治疗是首选根治方案。B错误，药物治疗治愈率低（约40%）。C正确，笔记指出低碘粮单独使用效果有限。D正确，笔记提到手术前需用药物控制甲亢。"
-          },
-          {
-            "id": "q_4",
-            "isCorrect": true,
-            "userAns": "C",
-            "correctAns": "C",
-            "rationale": "笔记明确指出，部分老年猫可能呈现非典型症状，如嗜睡、厌食、精神沉郁等。A、B、D均为笔记中列举的典型症状。"
-          }
-        ],
-        "syncedAt": "2026-01-31T08:52:34.491Z"
-      },
-      {
-        "round": 4,
-        "accuracy": 0,
-        "total": 5,
-        "correct": 0,
-        "quiz": {
-          "meta": {
-            "subject": "未知科目",
-            "chapter_title": "1 流行病学",
-            "version_hash": "v1",
-            "created_at": "2026-01-31T08:51:36.461Z",
-            "timebox_minutes": 15
-          },
-          "extracted": {
-            "core_concepts": [],
-            "core_claims": [],
-            "likely_misconceptions": [],
-            "prior_links": []
-          },
-          "questions": [
-            {
-              "id": "q_0",
-              "type": "single",
-              "intent": "A",
-              "stem": "根据笔记内容，关于猫甲亢流行病学的描述，以下哪项是正确的？",
-              "options": [
-                "暹罗猫和喜马拉雅猫的发病率相对较高",
-                "雌猫比公猫更易患此病，比例约为1:4-6",
-                "所有病例均出现在8岁以上的猫中",
-                "全球范围内，约1.5%—11.4%的所有年龄猫可能罹患该病"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确指出雌猫比公猫更易患此病，比例约为1:4-6。A错误，暹罗猫和喜马拉雅猫发病率较低；C错误，有约2-3%的病例出现在8岁以下；D错误，发病率数据是针对老年猫。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_1",
-              "type": "single",
-              "intent": "B",
-              "stem": "关于猫甲亢的发病机制，以下哪项描述与笔记内容不符？",
-              "options": [
-                "猫甲亢主要由甲状腺腺瘤或甲状腺增生引起",
-                "恶性肿瘤约占病例的10%-20%",
-                "环境中的多溴联苯醚(PBDEs)与猫甲亢的发生密切相关",
-                "甲状腺激素分泌过多会导致机体代谢率异常升高"
-              ],
-              "concept": "通用",
-              "rationale": "笔记指出98%-99%的病例为良性病变，恶性肿瘤仅占1%—2%。B选项的10%-20%与笔记不符。A、C、D均为笔记中关于病因和机制的准确描述。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_2",
-              "type": "single",
-              "intent": "C",
-              "stem": "诊断猫甲亢时，以下哪项实验室检查结果最不可能出现在典型的甲亢猫中？",
-              "options": [
-                "血清总甲状腺素(TT4)水平升高",
-                "促甲状腺激素(TSH)水平升高",
-                "肝酶活性(ALT、AST)增加",
-                "血细胞比容(PCV)升高"
-              ],
-              "concept": "通用",
-              "rationale": "笔记指出，甲亢猫的TSH通常降低或无法检测到。因此，TSH升高不符合典型甲亢表现。A、C、D均为笔记中提到的甲亢猫可能出现的实验室变化。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_3",
-              "type": "multi",
-              "intent": "D",
-              "stem": "关于猫甲亢的治疗方案比较，以下哪项陈述是正确的？",
-              "options": [
-                "放射性碘治疗是目前首选的根治性方案",
-                "药物治疗的治愈率很高，可达80%以上",
-                "低碘处方粮单独使用对控制严重甲亢效果有限",
-                "手术治疗前通常需要用抗甲状腺药物控制甲亢状态"
-              ],
-              "concept": "通用",
-              "rationale": "A正确，笔记指出放射性碘治疗是首选根治方案。B错误，药物治疗治愈率低（约40%）。C正确，笔记指出低碘粮单独使用效果有限。D正确，笔记提到手术前需用药物控制甲亢。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "set",
-                "value": [
-                  "A",
-                  "C",
-                  "D"
-                ]
-              }
-            },
-            {
-              "id": "q_4",
-              "type": "single",
-              "intent": "C",
-              "stem": "猫甲亢的典型临床表现包括高代谢状态和交感神经兴奋性增高。以下症状中，哪一项属于笔记中提到的非典型症状？",
-              "options": [
-                "体重明显下降但食欲增强",
-                "心率加快（通常超过160次/分钟）",
-                "嗜睡、厌食、精神沉郁",
-                "被毛蓬乱、粗糙、无光泽"
-              ],
-              "concept": "通用",
-              "rationale": "笔记明确指出，部分老年猫可能呈现非典型症状，如嗜睡、厌食、精神沉郁等。A、B、D均为笔记中列举的典型症状。",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            }
-          ],
-          "scoring": {
-            "objective_rules": "每题 1 分",
-            "short_rules": {}
-          },
-          "stop_rules": {
-            "stable_if": {
-              "A_pass": true,
-              "B_pass": true,
-              "min_questions": 3
-            },
-            "unstable_if": {
-              "A_fail_count": 2,
-              "min_questions": 2
-            },
-            "messages": {
-              "stable": "恭喜！您已掌握本章核心内容。",
-              "unstable": "部分核心概念掌握不牢，建议回顾笔记后再试。",
-              "invalid": "输入无效，请检查。"
-            }
-          },
-          "ui_hints": {
-            "render_mode": "one_by_one",
-            "hide_total_count": true
-          }
-        },
-        "results": [
-          {
-            "id": "q_0",
-            "isCorrect": true,
-            "userAns": "B",
-            "correctAns": "B",
-            "rationale": "笔记明确指出雌猫比公猫更易患此病，比例约为1:4-6。A错误，暹罗猫和喜马拉雅猫发病率较低；C错误，有约2-3%的病例出现在8岁以下；D错误，发病率数据是针对老年猫。"
-          },
-          {
-            "id": "q_1",
-            "isCorrect": true,
-            "userAns": "B",
-            "correctAns": "B",
-            "rationale": "笔记指出98%-99%的病例为良性病变，恶性肿瘤仅占1%—2%。B选项的10%-20%与笔记不符。A、C、D均为笔记中关于病因和机制的准确描述。"
-          },
-          {
-            "id": "q_2",
-            "isCorrect": true,
-            "userAns": "B",
-            "correctAns": "B",
-            "rationale": "笔记指出，甲亢猫的TSH通常降低或无法检测到。因此，TSH升高不符合典型甲亢表现。A、C、D均为笔记中提到的甲亢猫可能出现的实验室变化。"
-          },
-          {
-            "id": "q_3",
-            "isCorrect": false,
-            "userAns": [
-              "B"
-            ],
-            "correctAns": [
-              "A",
-              "C",
-              "D"
-            ],
-            "rationale": "A正确，笔记指出放射性碘治疗是首选根治方案。B错误，药物治疗治愈率低（约40%）。C正确，笔记指出低碘粮单独使用效果有限。D正确，笔记提到手术前需用药物控制甲亢。"
-          },
-          {
-            "id": "q_4",
-            "isCorrect": true,
-            "userAns": "C",
-            "correctAns": "C",
-            "rationale": "笔记明确指出，部分老年猫可能呈现非典型症状，如嗜睡、厌食、精神沉郁等。A、B、D均为笔记中列举的典型症状。"
-          }
-        ],
-        "syncedAt": "2026-01-31T09:50:27.657Z"
-      },
-      {
-        "round": 5,
-        "accuracy": 0,
         "total": 4,
         "correct": 0,
         "quiz": {
@@ -1471,15 +667,16 @@
             "subject": "未知科目",
             "chapter_title": "Whether it's a vacation or a",
             "version_hash": "v1",
-            "created_at": "2026-01-31T10:04:45.842Z",
+            "created_at": "2026-01-31T15:15:04.317Z",
             "timebox_minutes": 15
           },
           "extracted": {
             "core_concepts": [
               "Cats form strong emotional bonds with humans based on trust, security, and familiarity",
-              "Cats possess episodic memory and rely heavily on olfactory cues (scent) to recognize owners after long absences",
-              "Cats perceive time differently — they notice absence duration but not in human terms; routine stability matters more than clock-based timing",
-              "Post-absence 'sulking' is a normal behavioral adjustment, not indifference or forgetting"
+              "Cats have episodic memory and can recall specific shared experiences",
+              "A cat's sense of smell plays a key role in recognizing owners after long absences",
+              "Cats perceive time differently — they notice absence but not in human terms",
+              "Post-absence 'sulking' is a normal reaction to routine disruption, not indifference"
             ],
             "core_claims": [],
             "likely_misconceptions": [],
@@ -1490,15 +687,15 @@
               "id": "q_0",
               "type": "single",
               "intent": "A",
-              "stem": "According to the passage, what is the primary basis for the emotional bond between cats and their owners?",
+              "stem": "According to the text, what is the primary basis for the emotional bond between cats and their owners?",
               "options": [
-                "Independence and self-sufficiency",
+                "Shared feeding schedules and consistent treats",
                 "Trust, security, and familiarity",
-                "Frequency of feeding alone",
-                "Length of cohabitation in years"
+                "Genetic predisposition to attachment",
+                "Frequent physical contact like daily brushing"
               ],
               "concept": "通用",
-              "rationale": "The text explicitly states bonds are 'built on trust, security, and familiarity.' Independence is contrasted as a misconception. Feeding frequency and cohabitation length are not cited as foundational.",
+              "rationale": "The text explicitly states that feline-human bonds are built on 'trust, security, and familiarity.' Other options—while potentially supportive—are not identified as the foundational basis. This reflects the core conceptual claim.",
               "difficulty": 1,
               "answer": {
                 "kind": "exact",
@@ -1509,15 +706,15 @@
               "id": "q_1",
               "type": "single",
               "intent": "B",
-              "stem": "Which factor most directly supports a cat's ability to recognize its owner after several weeks away?",
+              "stem": "Which of the following best explains why a cat might seem 'sulky' upon its owner's return after a trip?",
               "options": [
-                "Its ability to tell time accurately",
-                "Its episodic memory of shared play sessions",
-                "Its heightened sense of smell detecting the owner's scent",
-                "Its tendency to sleep 15–17 hours daily"
+                "It has formed a stronger bond with the pet sitter",
+                "It is punishing the owner for leaving",
+                "Its established coping routine has been disrupted",
+                "It no longer recognizes the owner's scent"
               ],
               "concept": "通用",
-              "rationale": "The passage highlights scent detection as 'key' for recognition after long separation. Episodic memory helps recall events but scent enables immediate identification. Sleep duration and time perception are unrelated to recognition.",
+              "rationale": "The text states that 'your return may disrupt this recently established routine,' causing temporary distance. This is framed as habitual adjustment—not anger, forgetting, or preference shift. Option C directly matches the behavioral explanation given.",
               "difficulty": 1,
               "answer": {
                 "kind": "exact",
@@ -1528,15 +725,15 @@
               "id": "q_2",
               "type": "single",
               "intent": "C",
-              "stem": "Why might a cat appear 'sulky' upon its owner's return after a trip?",
+              "stem": "Which statement reflects a common misconception debunked in the text?",
               "options": [
-                "It has forgotten the owner and feels threatened",
-                "It is expressing anger at being left alone",
-                "It is readjusting to a disrupted routine and habitual expectations",
-                "It is physically exhausted from waiting"
+                "Cats sleep 15–17 hours per day",
+                "Cats use scent to identify familiar people",
+                "Cats forget owners after several weeks away",
+                "Cats respond better to calm departures than over-affectionate ones"
               ],
               "concept": "通用",
-              "rationale": "Hugues Martinat explains this as normal habit-driven adjustment to routine change—not anger, forgetting, or fatigue. Stress signs like urination/vomiting are linked to coping mechanisms, not emotion-based blame.",
+              "rationale": "The text explicitly refutes the idea that cats forget owners, citing episodic memory, scent recognition, and expert affirmation. Options A, B, and D are all presented as facts—not misconceptions—making C the only correct choice for a debunked myth.",
               "difficulty": 1,
               "answer": {
                 "kind": "exact",
@@ -1547,13 +744,13 @@
               "id": "q_3",
               "type": "tf",
               "intent": "D",
-              "stem": "True or false: According to the passage, cats perceive the duration of their owner's absence in the same way humans do.",
+              "stem": "True or false: According to Hugues Martinat, cats perceive the duration of their owner's absence in the same way humans do.",
               "options": [
                 "正确",
                 "错误"
               ],
               "concept": "通用",
-              "rationale": "The passage states cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' Their time perception is qualitative and routine-based, not quantitative or clock-aligned.",
+              "rationale": "The text quotes Martinat saying cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' This directly contradicts the statement. So the correct answer is '错误' (i.e., F).",
               "difficulty": 1,
               "answer": {
                 "kind": "exact",
@@ -1576,9 +773,9 @@
               "min_questions": 2
             },
             "messages": {
-              "stable": "You've demonstrated solid understanding of core concepts about feline memory, bonding, and behavior during owner absence.",
-              "unstable": "One or more core ideas need reinforcement—review how cats form bonds, use scent/memory, and respond to routine changes.",
-              "invalid": "Invalid response format detected. Please follow instructions precisely."
+              "stable": "You've demonstrated solid understanding of core concepts and their application.",
+              "unstable": "One or more core ideas need reinforcement — review the notes on bonding, memory, and behavioral responses.",
+              "invalid": "Invalid response format detected. Please follow instructions carefully."
             }
           },
           "ui_hints": {
@@ -1589,195 +786,38 @@
         "results": [
           {
             "id": "q_0",
-            "isCorrect": false,
-            "userAns": "A",
+            "isCorrect": true,
+            "userAns": "B",
             "correctAns": "B",
-            "rationale": "The text explicitly states bonds are 'built on trust, security, and familiarity.' Independence is contrasted as a misconception. Feeding frequency and cohabitation length are not cited as foundational."
+            "rationale": "The text explicitly states that feline-human bonds are built on 'trust, security, and familiarity.' Other options—while potentially supportive—are not identified as the foundational basis. This reflects the core conceptual claim."
           },
           {
             "id": "q_1",
             "isCorrect": false,
             "userAns": "B",
             "correctAns": "C",
-            "rationale": "The passage highlights scent detection as 'key' for recognition after long separation. Episodic memory helps recall events but scent enables immediate identification. Sleep duration and time perception are unrelated to recognition."
-          },
-          {
-            "id": "q_2",
-            "isCorrect": false,
-            "userAns": "A",
-            "correctAns": "C",
-            "rationale": "Hugues Martinat explains this as normal habit-driven adjustment to routine change—not anger, forgetting, or fatigue. Stress signs like urination/vomiting are linked to coping mechanisms, not emotion-based blame."
-          },
-          {
-            "id": "q_3",
-            "isCorrect": true,
-            "userAns": "F",
-            "correctAns": "F",
-            "rationale": "The passage states cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' Their time perception is qualitative and routine-based, not quantitative or clock-aligned."
-          }
-        ],
-        "syncedAt": "2026-01-31T10:06:20.656Z"
-      },
-      {
-        "round": 6,
-        "accuracy": 0,
-        "total": 4,
-        "correct": 0,
-        "quiz": {
-          "meta": {
-            "subject": "未知科目",
-            "chapter_title": "Whether it's a vacation or a",
-            "version_hash": "v1",
-            "created_at": "2026-01-31T10:04:45.842Z",
-            "timebox_minutes": 15
-          },
-          "extracted": {
-            "core_concepts": [
-              "Cats form strong emotional bonds with humans based on trust, security, and familiarity",
-              "Cats possess episodic memory and rely heavily on olfactory cues (scent) to recognize owners after long absences",
-              "Cats perceive time differently — they notice absence duration but not in human terms; routine stability matters more than clock-based timing",
-              "Post-absence 'sulking' is a normal behavioral adjustment, not indifference or forgetting"
-            ],
-            "core_claims": [],
-            "likely_misconceptions": [],
-            "prior_links": []
-          },
-          "questions": [
-            {
-              "id": "q_0",
-              "type": "single",
-              "intent": "A",
-              "stem": "According to the passage, what is the primary basis for the emotional bond between cats and their owners?",
-              "options": [
-                "Independence and self-sufficiency",
-                "Trust, security, and familiarity",
-                "Frequency of feeding alone",
-                "Length of cohabitation in years"
-              ],
-              "concept": "通用",
-              "rationale": "The text explicitly states bonds are 'built on trust, security, and familiarity.' Independence is contrasted as a misconception. Feeding frequency and cohabitation length are not cited as foundational.",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "B"
-              }
-            },
-            {
-              "id": "q_1",
-              "type": "single",
-              "intent": "B",
-              "stem": "Which factor most directly supports a cat's ability to recognize its owner after several weeks away?",
-              "options": [
-                "Its ability to tell time accurately",
-                "Its episodic memory of shared play sessions",
-                "Its heightened sense of smell detecting the owner's scent",
-                "Its tendency to sleep 15–17 hours daily"
-              ],
-              "concept": "通用",
-              "rationale": "The passage highlights scent detection as 'key' for recognition after long separation. Episodic memory helps recall events but scent enables immediate identification. Sleep duration and time perception are unrelated to recognition.",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_2",
-              "type": "single",
-              "intent": "C",
-              "stem": "Why might a cat appear 'sulky' upon its owner's return after a trip?",
-              "options": [
-                "It has forgotten the owner and feels threatened",
-                "It is expressing anger at being left alone",
-                "It is readjusting to a disrupted routine and habitual expectations",
-                "It is physically exhausted from waiting"
-              ],
-              "concept": "通用",
-              "rationale": "Hugues Martinat explains this as normal habit-driven adjustment to routine change—not anger, forgetting, or fatigue. Stress signs like urination/vomiting are linked to coping mechanisms, not emotion-based blame.",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "C"
-              }
-            },
-            {
-              "id": "q_3",
-              "type": "tf",
-              "intent": "D",
-              "stem": "True or false: According to the passage, cats perceive the duration of their owner's absence in the same way humans do.",
-              "options": [
-                "正确",
-                "错误"
-              ],
-              "concept": "通用",
-              "rationale": "The passage states cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' Their time perception is qualitative and routine-based, not quantitative or clock-aligned.",
-              "difficulty": 1,
-              "answer": {
-                "kind": "exact",
-                "value": "F"
-              }
-            }
-          ],
-          "scoring": {
-            "objective_rules": "每题 1 分",
-            "short_rules": {}
-          },
-          "stop_rules": {
-            "stable_if": {
-              "A_pass": true,
-              "B_pass": true,
-              "min_questions": 3
-            },
-            "unstable_if": {
-              "A_fail_count": 2,
-              "min_questions": 2
-            },
-            "messages": {
-              "stable": "You've demonstrated solid understanding of core concepts about feline memory, bonding, and behavior during owner absence.",
-              "unstable": "One or more core ideas need reinforcement—review how cats form bonds, use scent/memory, and respond to routine changes.",
-              "invalid": "Invalid response format detected. Please follow instructions precisely."
-            }
-          },
-          "ui_hints": {
-            "render_mode": "one_by_one",
-            "hide_total_count": true
-          }
-        },
-        "results": [
-          {
-            "id": "q_0",
-            "isCorrect": false,
-            "userAns": "C",
-            "correctAns": "B",
-            "rationale": "The text explicitly states bonds are 'built on trust, security, and familiarity.' Independence is contrasted as a misconception. Feeding frequency and cohabitation length are not cited as foundational."
-          },
-          {
-            "id": "q_1",
-            "isCorrect": true,
-            "userAns": "C",
-            "correctAns": "C",
-            "rationale": "The passage highlights scent detection as 'key' for recognition after long separation. Episodic memory helps recall events but scent enables immediate identification. Sleep duration and time perception are unrelated to recognition."
+            "rationale": "The text states that 'your return may disrupt this recently established routine,' causing temporary distance. This is framed as habitual adjustment—not anger, forgetting, or preference shift. Option C directly matches the behavioral explanation given."
           },
           {
             "id": "q_2",
             "isCorrect": true,
             "userAns": "C",
             "correctAns": "C",
-            "rationale": "Hugues Martinat explains this as normal habit-driven adjustment to routine change—not anger, forgetting, or fatigue. Stress signs like urination/vomiting are linked to coping mechanisms, not emotion-based blame."
+            "rationale": "The text explicitly refutes the idea that cats forget owners, citing episodic memory, scent recognition, and expert affirmation. Options A, B, and D are all presented as facts—not misconceptions—making C the only correct choice for a debunked myth."
           },
           {
             "id": "q_3",
-            "isCorrect": true,
-            "userAns": "F",
+            "isCorrect": false,
+            "userAns": "T",
             "correctAns": "F",
-            "rationale": "The passage states cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' Their time perception is qualitative and routine-based, not quantitative or clock-aligned."
+            "rationale": "The text quotes Martinat saying cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' This directly contradicts the statement. So the correct answer is '错误' (i.e., F)."
           }
         ],
-        "syncedAt": "2026-01-31T10:18:02.777Z"
+        "syncedAt": "2026-01-31T15:15:36.550Z"
       }
     ],
     "totals": {
-      "answered": 30,
+      "answered": 4,
       "correct": 0
     },
     "weaknesses": {},
@@ -1787,15 +827,15 @@
           "id": "q_0",
           "type": "single",
           "intent": "A",
-          "stem": "According to the passage, what is the primary basis for the emotional bond between cats and their owners?",
+          "stem": "According to the text, what is the primary basis for the emotional bond between cats and their owners?",
           "options": [
-            "Independence and self-sufficiency",
+            "Shared feeding schedules and consistent treats",
             "Trust, security, and familiarity",
-            "Frequency of feeding alone",
-            "Length of cohabitation in years"
+            "Genetic predisposition to attachment",
+            "Frequent physical contact like daily brushing"
           ],
           "concept": "通用",
-          "rationale": "The text explicitly states bonds are 'built on trust, security, and familiarity.' Independence is contrasted as a misconception. Feeding frequency and cohabitation length are not cited as foundational.",
+          "rationale": "The text explicitly states that feline-human bonds are built on 'trust, security, and familiarity.' Other options—while potentially supportive—are not identified as the foundational basis. This reflects the core conceptual claim.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1806,15 +846,15 @@
           "id": "q_1",
           "type": "single",
           "intent": "B",
-          "stem": "Which factor most directly supports a cat's ability to recognize its owner after several weeks away?",
+          "stem": "Which of the following best explains why a cat might seem 'sulky' upon its owner's return after a trip?",
           "options": [
-            "Its ability to tell time accurately",
-            "Its episodic memory of shared play sessions",
-            "Its heightened sense of smell detecting the owner's scent",
-            "Its tendency to sleep 15–17 hours daily"
+            "It has formed a stronger bond with the pet sitter",
+            "It is punishing the owner for leaving",
+            "Its established coping routine has been disrupted",
+            "It no longer recognizes the owner's scent"
           ],
           "concept": "通用",
-          "rationale": "The passage highlights scent detection as 'key' for recognition after long separation. Episodic memory helps recall events but scent enables immediate identification. Sleep duration and time perception are unrelated to recognition.",
+          "rationale": "The text states that 'your return may disrupt this recently established routine,' causing temporary distance. This is framed as habitual adjustment—not anger, forgetting, or preference shift. Option C directly matches the behavioral explanation given.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1825,15 +865,15 @@
           "id": "q_2",
           "type": "single",
           "intent": "C",
-          "stem": "Why might a cat appear 'sulky' upon its owner's return after a trip?",
+          "stem": "Which statement reflects a common misconception debunked in the text?",
           "options": [
-            "It has forgotten the owner and feels threatened",
-            "It is expressing anger at being left alone",
-            "It is readjusting to a disrupted routine and habitual expectations",
-            "It is physically exhausted from waiting"
+            "Cats sleep 15–17 hours per day",
+            "Cats use scent to identify familiar people",
+            "Cats forget owners after several weeks away",
+            "Cats respond better to calm departures than over-affectionate ones"
           ],
           "concept": "通用",
-          "rationale": "Hugues Martinat explains this as normal habit-driven adjustment to routine change—not anger, forgetting, or fatigue. Stress signs like urination/vomiting are linked to coping mechanisms, not emotion-based blame.",
+          "rationale": "The text explicitly refutes the idea that cats forget owners, citing episodic memory, scent recognition, and expert affirmation. Options A, B, and D are all presented as facts—not misconceptions—making C the only correct choice for a debunked myth.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1844,13 +884,13 @@
           "id": "q_3",
           "type": "tf",
           "intent": "D",
-          "stem": "True or false: According to the passage, cats perceive the duration of their owner's absence in the same way humans do.",
+          "stem": "True or false: According to Hugues Martinat, cats perceive the duration of their owner's absence in the same way humans do.",
           "options": [
             "正确",
             "错误"
           ],
           "concept": "通用",
-          "rationale": "The passage states cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' Their time perception is qualitative and routine-based, not quantitative or clock-aligned.",
+          "rationale": "The text quotes Martinat saying cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' This directly contradicts the statement. So the correct answer is '错误' (i.e., F).",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1862,8 +902,8 @@
     "lastGrading": null,
     "lastGradedQuiz": null,
     "lastReviewText": "",
-    "createdAt": "2026-01-29T16:07:42.024Z",
-    "lastActive": 1769854670194,
+    "createdAt": "2026-01-31T15:14:48.017Z",
+    "lastActive": 1769872488018,
     "seen": [],
     "seenStems": [],
     "lastStems": [],
@@ -1873,15 +913,16 @@
         "subject": "未知科目",
         "chapter_title": "Whether it's a vacation or a",
         "version_hash": "v1",
-        "created_at": "2026-01-31T10:04:45.842Z",
+        "created_at": "2026-01-31T15:15:04.317Z",
         "timebox_minutes": 15
       },
       "extracted": {
         "core_concepts": [
           "Cats form strong emotional bonds with humans based on trust, security, and familiarity",
-          "Cats possess episodic memory and rely heavily on olfactory cues (scent) to recognize owners after long absences",
-          "Cats perceive time differently — they notice absence duration but not in human terms; routine stability matters more than clock-based timing",
-          "Post-absence 'sulking' is a normal behavioral adjustment, not indifference or forgetting"
+          "Cats have episodic memory and can recall specific shared experiences",
+          "A cat's sense of smell plays a key role in recognizing owners after long absences",
+          "Cats perceive time differently — they notice absence but not in human terms",
+          "Post-absence 'sulking' is a normal reaction to routine disruption, not indifference"
         ],
         "core_claims": [],
         "likely_misconceptions": [],
@@ -1892,15 +933,15 @@
           "id": "q_0",
           "type": "single",
           "intent": "A",
-          "stem": "According to the passage, what is the primary basis for the emotional bond between cats and their owners?",
+          "stem": "According to the text, what is the primary basis for the emotional bond between cats and their owners?",
           "options": [
-            "Independence and self-sufficiency",
+            "Shared feeding schedules and consistent treats",
             "Trust, security, and familiarity",
-            "Frequency of feeding alone",
-            "Length of cohabitation in years"
+            "Genetic predisposition to attachment",
+            "Frequent physical contact like daily brushing"
           ],
           "concept": "通用",
-          "rationale": "The text explicitly states bonds are 'built on trust, security, and familiarity.' Independence is contrasted as a misconception. Feeding frequency and cohabitation length are not cited as foundational.",
+          "rationale": "The text explicitly states that feline-human bonds are built on 'trust, security, and familiarity.' Other options—while potentially supportive—are not identified as the foundational basis. This reflects the core conceptual claim.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1911,15 +952,15 @@
           "id": "q_1",
           "type": "single",
           "intent": "B",
-          "stem": "Which factor most directly supports a cat's ability to recognize its owner after several weeks away?",
+          "stem": "Which of the following best explains why a cat might seem 'sulky' upon its owner's return after a trip?",
           "options": [
-            "Its ability to tell time accurately",
-            "Its episodic memory of shared play sessions",
-            "Its heightened sense of smell detecting the owner's scent",
-            "Its tendency to sleep 15–17 hours daily"
+            "It has formed a stronger bond with the pet sitter",
+            "It is punishing the owner for leaving",
+            "Its established coping routine has been disrupted",
+            "It no longer recognizes the owner's scent"
           ],
           "concept": "通用",
-          "rationale": "The passage highlights scent detection as 'key' for recognition after long separation. Episodic memory helps recall events but scent enables immediate identification. Sleep duration and time perception are unrelated to recognition.",
+          "rationale": "The text states that 'your return may disrupt this recently established routine,' causing temporary distance. This is framed as habitual adjustment—not anger, forgetting, or preference shift. Option C directly matches the behavioral explanation given.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1930,15 +971,15 @@
           "id": "q_2",
           "type": "single",
           "intent": "C",
-          "stem": "Why might a cat appear 'sulky' upon its owner's return after a trip?",
+          "stem": "Which statement reflects a common misconception debunked in the text?",
           "options": [
-            "It has forgotten the owner and feels threatened",
-            "It is expressing anger at being left alone",
-            "It is readjusting to a disrupted routine and habitual expectations",
-            "It is physically exhausted from waiting"
+            "Cats sleep 15–17 hours per day",
+            "Cats use scent to identify familiar people",
+            "Cats forget owners after several weeks away",
+            "Cats respond better to calm departures than over-affectionate ones"
           ],
           "concept": "通用",
-          "rationale": "Hugues Martinat explains this as normal habit-driven adjustment to routine change—not anger, forgetting, or fatigue. Stress signs like urination/vomiting are linked to coping mechanisms, not emotion-based blame.",
+          "rationale": "The text explicitly refutes the idea that cats forget owners, citing episodic memory, scent recognition, and expert affirmation. Options A, B, and D are all presented as facts—not misconceptions—making C the only correct choice for a debunked myth.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1949,13 +990,13 @@
           "id": "q_3",
           "type": "tf",
           "intent": "D",
-          "stem": "True or false: According to the passage, cats perceive the duration of their owner's absence in the same way humans do.",
+          "stem": "True or false: According to Hugues Martinat, cats perceive the duration of their owner's absence in the same way humans do.",
           "options": [
             "正确",
             "错误"
           ],
           "concept": "通用",
-          "rationale": "The passage states cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' Their time perception is qualitative and routine-based, not quantitative or clock-aligned.",
+          "rationale": "The text quotes Martinat saying cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' This directly contradicts the statement. So the correct answer is '错误' (i.e., F).",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1978,26 +1019,15 @@
           "min_questions": 2
         },
         "messages": {
-          "stable": "You've demonstrated solid understanding of core concepts about feline memory, bonding, and behavior during owner absence.",
-          "unstable": "One or more core ideas need reinforcement—review how cats form bonds, use scent/memory, and respond to routine changes.",
-          "invalid": "Invalid response format detected. Please follow instructions precisely."
+          "stable": "You've demonstrated solid understanding of core concepts and their application.",
+          "unstable": "One or more core ideas need reinforcement — review the notes on bonding, memory, and behavioral responses.",
+          "invalid": "Invalid response format detected. Please follow instructions carefully."
         }
       },
       "ui_hints": {
         "render_mode": "one_by_one",
         "hide_total_count": true
       }
-    },
-    "chapterTitleOverride": "",
-    "chapterTitleDerived": "Whether it's a vacation or a",
-    "wrongMarks": {
-      "e512bca4-1cc2-48f9-927c-8f5adba6943e:1:q_0": "reviewed",
-      "e512bca4-1cc2-48f9-927c-8f5adba6943e:1:q_1": "reviewed",
-      "e512bca4-1cc2-48f9-927c-8f5adba6943e:2:q_5": "reviewed",
-      "e512bca4-1cc2-48f9-927c-8f5adba6943e:2:q_1": "reviewed",
-      "e512bca4-1cc2-48f9-927c-8f5adba6943e:2:q_0": "mastered",
-      "e512bca4-1cc2-48f9-927c-8f5adba6943e:3:q_2": "mastered"
-    },
-    "model": "qwen-plus"
+    }
   }
 ]

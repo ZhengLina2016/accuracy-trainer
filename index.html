@@ -1238,11 +1238,53 @@ const app = {
           return cards.join('');
         };
 
+        const buildTrap = () => {
+          const cards = [];
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            if (!it) continue;
+            if (typeof it === 'string') {
+              const text = String(it || '').trim();
+              if (!text) continue;
+              cards.push(`<div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+                  <div style="font-weight:800; color:#0f172a;">陷阱</div>
+                  ${fbBtns(i)}
+                </div>
+                <div class="text-sm" style="color:#0f172a; line-height:1.8;">
+                  ${this.escapeHtml(text)}
+                </div>
+              </div>`);
+              continue;
+            }
+            if (typeof it !== 'object') continue;
+            const type = String(it.type || '').trim();
+            const point = String(it.point || '').trim();
+            const logic = String(it.logic || '').trim();
+            const prevention = String(it.prevention || '').trim();
+            if (!type && !point && !logic && !prevention) continue;
+            cards.push(`<div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px; margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:8px;">
+                <div style="font-weight:800; color:#0f172a;">${this.escapeHtml(type || '陷阱')}</div>
+                ${fbBtns(i)}
+              </div>
+              <div class="text-sm" style="color:#0f172a; line-height:1.8;">
+                ${point ? `<div><span style="color:#64748b;">要点：</span>${this.escapeHtml(point)}</div>` : ''}
+                ${logic ? `<div><span style="color:#64748b;">逻辑：</span>${this.escapeHtml(logic)}</div>` : ''}
+                ${prevention ? `<div><span style="color:#64748b;">预防：</span>${this.escapeHtml(prevention)}</div>` : ''}
+              </div>
+            </div>`);
+          }
+          if (!cards.length) return `<div style="color:#64748b;">暂无内容</div>`;
+          return cards.join('');
+        };
+
         const contentHtml =
           intent === 'B' ? buildTable()
           : (intent === 'D' ? buildChain()
             : (intent === 'A' ? buildCore()
-              : (items.length ? `<ul style="margin:0; padding-left:18px;">${items.map((it, i) => `<li style="margin-bottom:6px;">${this.escapeHtml(it)}${fbBtns(i)}</li>`).join('')}</ul>` : `<div style="color:#64748b;">暂无内容</div>`)));
+              : (intent === 'C' ? buildTrap()
+                : (items.length ? `<ul style="margin:0; padding-left:18px;">${items.map((it, i) => `<li style="margin-bottom:6px;">${this.escapeHtml(it)}${fbBtns(i)}</li>`).join('')}</ul>` : `<div style="color:#64748b;">暂无内容</div>`))));
 
         noteHtml = `
           <details style="margin-top:12px; padding-top:12px; border-top:1px dashed #e2e8f0;" open>

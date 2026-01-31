@@ -178,6 +178,63 @@ async function main() {
         await assert(res.status === 400, "Should fail with invalid session ID");
     });
 
+    log("Note Intent API Tests", "section");
+
+    await runTest("Note Intent Status - Invalid Intent", async () => {
+        const res = await fetch(url + "/api/note_intent_status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intent: "X", sessionIds: ["s1"] })
+        });
+        await assert(res.status === 400, "Should reject unsupported intent");
+        const text = await res.text();
+        await assert(text.includes("A/B/C/D"), "Error should mention allowed intents");
+    });
+
+    await runTest("Note Intent Status - Missing sessionIds", async () => {
+        const res = await fetch(url + "/api/note_intent_status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intent: "A" })
+        });
+        await assert(res.status === 400, "Should fail without sessionIds");
+        const text = await res.text();
+        await assert(text.includes("sessionIds"), "Error should mention sessionIds");
+    });
+
+    await runTest("Note Intent Status - Not Cached", async () => {
+        const res = await fetch(url + "/api/note_intent_status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intent: "A", sessionIds: ["nonexistent-session"] })
+        });
+        await assert(res.ok, "Status should be 200 for valid payload");
+        const j = await res.json();
+        await assert(j.status === "not_cached", "Should report not_cached for fresh key");
+    });
+
+    await runTest("Note Intent Content - Invalid Intent", async () => {
+        const res = await fetch(url + "/api/note_intent_content", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intent: "Z", sessionIds: ["s1"] })
+        });
+        await assert(res.status === 400, "Should reject unsupported intent");
+        const text = await res.text();
+        await assert(text.includes("intent"), "Error should mention intent");
+    });
+
+    await runTest("Note Intent Content - Missing sessionIds", async () => {
+        const res = await fetch(url + "/api/note_intent_content", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intent: "A" })
+        });
+        await assert(res.status === 400, "Should fail without sessionIds");
+        const text = await res.text();
+        await assert(text.includes("sessionIds"), "Error should mention sessionIds");
+    });
+
     log("Performance Metrics", "section");
     console.table(metrics.performance);
 
