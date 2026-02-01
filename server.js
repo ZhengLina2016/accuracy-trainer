@@ -19,6 +19,15 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import mammoth from "mammoth";
 import { createWorker } from "tesseract.js";
+import {
+  detectDomainFromText,
+  buildStopwordSet,
+  buildAdaptiveStopwordsFromNotes,
+  extractCnKeywords2to4,
+  computeTfIdfTop,
+  collectWrongHighlights,
+  estimateNoteIntentEtaMs
+} from "./note_logic.js";
 
 const app = express();
 app.use(cors());
@@ -1125,48 +1134,17 @@ function loadStopwordConfig() {
 }
 stopwordConfig = loadStopwordConfig();
 
-function detectDomainFromText(text) {
-  const s = String(text || "");
-  const sig = stopwordConfig?.domainSignals || {};
-  let best = "";
-  let bestScore = 0;
-  for (const [domain, signals] of Object.entries(sig)) {
-    const arr = Array.isArray(signals) ? signals : [];
-    let score = 0;
-    for (const w of arr) {
-      const ww = String(w || "").trim();
-      if (!ww) continue;
-      if (s.includes(ww)) score += 1;
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      best = domain;
-    }
+function parseNoteIntentRequest(body) {
+  const src = body || {};
+  const key = String(src.intent || "").trim().toUpperCase();
+  if (!["A", "B", "C", "D"].includes(key)) {
+    return { error: "intent 仅支持 A/B/C/D。" };
   }
-  return bestScore >= 2 ? best : "";
-}
-
-function buildStopwordSet(domain) {
-  const base = new Set((stopwordConfig?.base || []).map(String));
-  const dom = String(domain || "");
-  const ds = stopwordConfig?.domains || {};
-  const list = Array.isArray(ds?.[dom]) ? ds[dom] : [];
-  for (const w of list) base.add(String(w || ""));
-  return base;
-}
-
-function buildAdaptiveStopwordsFromNotes(notes, limit = 10) {
-  const s = String(notes || "");
-  const tokens = s.match(/[\u4e00-\u9fff]{2,4}/g) || [];
-  const freq = new Map();
-  for (const t of tokens) {
-    const tok = String(t || "").trim();
-    if (!tok) continue;
-    if (/^(.)\1+$/.test(tok)) continue;
-    freq.set(tok, (freq.get(tok) || 0) + 1);
+  const ids = Array.isArray(src.sessionIds) ? src.sessionIds.map(String).filter(Boolean) : [];
+  if (ids.length === 0) {
+    return { error: "sessionIds 不能为空。" };
   }
-  const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([k]) => k);
-  return new Set(top);
+  return { intent: key, sessionIds: ids };
 }
 
 function validateNoteIntentAorC(items) {
@@ -1203,92 +1181,6 @@ function validateNoteIntentCString(data) {
 }
 
 
-function extractCnKeywords2to4(text, stopSet) {
-  const s = String(text || "");
-  const matches = s.match(/[\u4e00-\u9fff]{2,4}/g) || [];
-  const out = [];
-  for (const t of matches) {
-    const token = String(t || "").trim();
-    if (!token) continue;
-    if (stopSet && stopSet.has(token)) continue;
-    if (/^(.)\1+$/.test(token)) continue;
-    out.push(token);
-  }
-  return out;
-}
-
-function computeTfIdfTop(tokens, perDocTokenSets, limit = 14) {
-  const tf = new Map();
-  for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
-  const df = new Map();
-  for (const set of perDocTokenSets) {
-    for (const t of set) df.set(t, (df.get(t) || 0) + 1);
-  }
-  const N = perDocTokenSets.length || 1;
-  const scored = [];
-  for (const [t, c] of tf.entries()) {
-    const d = df.get(t) || 1;
-    const idf = Math.log((N + 1) / (d + 1)) + 1;
-    scored.push([t, c * idf]);
-  }
-  scored.sort((a, b) => b[1] - a[1] || b[0].length - a[0].length);
-  return scored.slice(0, limit).map(([t]) => t);
-}
-
-function collectWrongHighlights(intent, sessionIds, limit = 12) {
-  const freq = new Map();
-  const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
-  const notesParts = [];
-  const perDocTokenSets = [];
-  const allTokens = [];
-
-  for (const sid of ids) {
-    const session = sessionStore.get(sid);
-    if (!session?.history) continue;
-    const notes = String(session?.notesRaw || session?.notes || "").trim();
-    if (notes) notesParts.push(notes);
-  }
-
-  const combinedNotes = notesParts.join("\n");
-  const domain = detectDomainFromText(combinedNotes);
-  const stopSet = buildStopwordSet(domain);
-  const adaptive = buildAdaptiveStopwordsFromNotes(combinedNotes, 10);
-  for (const w of adaptive) stopSet.add(w);
-
-  for (const sid of ids) {
-    const session = sessionStore.get(sid);
-    if (!session?.history) continue;
-    for (const entry of session.history) {
-      if (!entry?.results || !entry?.quiz?.questions) continue;
-      for (const resItem of entry.results) {
-        if (resItem?.isCorrect !== false) continue;
-        const qDetail = entry.quiz.questions.find(q => q.id === resItem.id);
-        if (!qDetail) continue;
-        if (String(qDetail.intent || "").toUpperCase() !== String(intent).toUpperCase()) continue;
-        const c = String(qDetail.concept || "").trim();
-        if (c && c.length <= 20) freq.set(c, (freq.get(c) || 0) + 3);
-        const stem = String(qDetail.stem || "");
-        const kws = extractCnKeywords2to4(stem, stopSet);
-        const docSet = new Set(kws);
-        perDocTokenSets.push(docSet);
-        for (const kw of kws) allTokens.push(kw);
-      }
-    }
-  }
-  const tfidfTop = computeTfIdfTop(allTokens, perDocTokenSets, 14);
-  for (const t of tfidfTop) freq.set(t, (freq.get(t) || 0) + 2);
-  return Array.from(freq.entries())
-    .sort((a, b) => (b[1] - a[1]) || (String(b[0]).length - String(a[0]).length))
-    .slice(0, limit)
-    .map(([k]) => k);
-}
-
-function estimateNoteIntentEtaMs(intent, notesLen) {
-  const base = intent === "A" ? 9500 : (intent === "D" ? 9000 : (intent === "B" ? 8000 : 7000));
-  const extra = Math.max(0, Number(notesLen) || 0) / 1200 * 1200;
-  const ms = base + extra;
-  return Math.max(5000, Math.min(25000, Math.round(ms)));
-}
 
 function buildCoreConceptSnippets(notes, concepts, maxChars = 2600) {
   const s = String(notes || "");
@@ -1393,6 +1285,346 @@ function formatNoteItemForPrompt(intent, item) {
   if (k === "B") return `${String(item?.original || "")} => ${String(item?.variant || "")} => ${String(item?.conclusion || "")}`;
   if (k === "D") return `${String(item?.prior || "")} => ${String(item?.rule || "")} => ${String(item?.derivation || "")}`;
   return String(item ?? "");
+}
+
+async function computeNoteIntentContent({ key, ids, cacheKey, apiKeyFromReq, modelFromReq }) {
+  const highlights = collectWrongHighlights(key, ids, sessionStore, stopwordConfig, 12);
+  const parts = [];
+  let apiKey = typeof apiKeyFromReq === "string" && apiKeyFromReq.trim().length >= 8 ? apiKeyFromReq.trim() : null;
+  let modelName = typeof modelFromReq === "string" && modelFromReq.trim().length > 0 ? modelFromReq.trim() : null;
+  for (const sid of ids) {
+    const s = sessionStore.get(sid);
+    if (!s) continue;
+    if (!apiKey && typeof s.apiKey === "string" && s.apiKey.trim().length >= 8) apiKey = s.apiKey.trim();
+    if (!modelName && s.model) modelName = s.model;
+    const title = s.chapterTitleOverride || s.chapterTitleDerived || s.lastPack?.meta?.chapter_title || "未命名章节";
+    const notes = String(s.notesRaw || s.notes || "").trim();
+    if (!notes) continue;
+    parts.push(`【${title}】\n${notes}`);
+  }
+  const combinedNotes = truncateNotesForModel(parts.join("\n\n"), 6500);
+  if (!apiKey) throw new Error("缺少有效的 API Key。请在前端输入并保存 Key 后再试。");
+  if (!modelName) modelName = "deepseek-chat";
+
+  const domainForLogic = detectDomainFromText(combinedNotes, stopwordConfig);
+  const logicStopSet = buildStopwordSet(domainForLogic, stopwordConfig);
+  const adaptiveForLogic = buildAdaptiveStopwordsFromNotes(combinedNotes, 10);
+  for (const w of adaptiveForLogic) logicStopSet.add(w);
+  const aStopSet = buildStopwordSet(domainForLogic, stopwordConfig);
+  for (const w of adaptiveForLogic) aStopSet.add(w);
+
+  const focusTemplate = {
+    A: "关注概念的“定义/边界/必要条件”，用反例检验边界。",
+    B: "关注条件变化：把“原条件 vs 变体条件”列成对照表，并给出结论。",
+    C: "关注题干陷阱：限定词/否定词/范围词/偷换概念，并给出排雷动作。",
+    D: "关注跨章连接：前置知识 + 本章规则如何拼接成推理链（推导结论）。"
+  }[key];
+
+  const schemaHint =
+    key === "B"
+      ? "输出 JSON：{ intent:'B', items:[{ original:'原条件', variant:'变体', conclusion:'结论' }, ...] }"
+      : (key === "D"
+        ? "输出 JSON：{ intent:'D', items:[{ prior:'前置知识', rule:'本章规则', derivation:'推导' }, ...] }"
+        : (key === "A"
+          ? "输出 JSON：{ intent:'A', items:[{ concept:'概念名', definition:'定义', boundary:'边界', necessary:'必要条件', counterexample:'反例' }, ...] }"
+          : "输出 JSON：{ intent:'C', items:[{ type:'陷阱类型', point:'要点', logic:'逻辑', prevention:'预防措施' }, ...] }"));
+
+  const existingFeedback = mergeNoteInsightFeedback(cacheKey, ids);
+  const feedbackGood = [];
+  const feedbackBad = [];
+  if (existingFeedback && typeof existingFeedback === "object") {
+    const cur = noteIntentCache.get(cacheKey);
+    const curItems = Array.isArray(cur?.items) ? cur.items : [];
+    const curKeys = curItems.map(it => noteItemKey(key, it));
+    for (let i = 0; i < curItems.length; i++) {
+      const ik = curKeys[i];
+      const v = existingFeedback[ik];
+      if (v === "useful") feedbackGood.push(formatNoteItemForPrompt(key, curItems[i]));
+      if (v === "bad") feedbackBad.push(formatNoteItemForPrompt(key, curItems[i]));
+    }
+  }
+
+  const notesForPrompt = (() => {
+    if (key === "A") {
+      const picked = [];
+      for (const h of highlights || []) {
+        const t = String(h || "").trim();
+        if (!t) continue;
+        if (t.length < 2 || t.length > 12) continue;
+        picked.push(t);
+        if (picked.length >= 4) break;
+      }
+      if (picked.length < 2) {
+        const tokens = extractCnKeywords2to4(combinedNotes, aStopSet);
+        const freq = new Map();
+        for (const t of tokens) freq.set(t, (freq.get(t) || 0) + 1);
+        const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
+        for (const t of top) if (!picked.includes(t)) picked.push(t);
+      }
+      const snippets = buildCoreConceptSnippets(combinedNotes, picked.slice(0, 4), 2600);
+      return snippets ? `（已抽取与核心概念最相关的笔记片段，减少无关内容）\n\n${snippets}` : combinedNotes;
+    }
+
+    if (key === "C") {
+      const picked = [];
+      for (const h of highlights || []) {
+        const t = String(h || "").trim();
+        if (!t) continue;
+        if (t.length < 1 || t.length > 16) continue;
+        picked.push(t);
+        if (picked.length >= 6) break;
+      }
+      if (picked.length < 2) {
+        const tokens = extractCnKeywords2to4(combinedNotes, aStopSet);
+        const freq = new Map();
+        for (const t of tokens) freq.set(t, (freq.get(t) || 0) + 1);
+        const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k);
+        for (const t of top) if (!picked.includes(t)) picked.push(t);
+      }
+      const snippets = picked.length
+        ? buildCoreConceptSnippets(combinedNotes, picked.slice(0, 6), 2600)
+        : "";
+      const overview = combinedNotes.slice(0, 800);
+      if (snippets) {
+        return `（已抽取与当前错题相关的笔记片段，尽量忽略无关内容）\n\n${snippets}\n\n（整体概貌节选）\n${overview}`;
+      }
+      return overview || combinedNotes;
+    }
+
+    return combinedNotes;
+  })();
+
+  const itemsCountLine =
+    key === "A" ? "- items 输出 3-5 条（每条是一个 concept 的成组信息）。"
+    : (key === "D" ? "- items 输出 4-8 条（每条一条推理链，尽量覆盖不同核心术语）。"
+      : "- items 输出 6-10 条；每个字段尽量短句（≤ 28 字）。");
+
+  const messages = [
+    { role: "system", content: "你只输出严格 JSON，不要 Markdown，不要多余解释。" },
+    {
+      role: "user",
+      content: [
+        "根据以下笔记，提炼学习要点。要求：",
+        `- ${schemaHint}`,
+        itemsCountLine,
+        "- B/C/D 的各字段必须是完整短句，不得只输出关键词。",
+        key === "C" ? "- C（陷阱识别）中每条 items 必须是通顺的完整中文句子，避免只罗列名词或碎片。" : "",
+        key === "C" ? "- C 的 point/logic/prevention 要用简短清晰的说明句，能直接指导下次避免同类陷阱。" : "",
+        key === "D" ? "- D（知识联结）优先覆盖不同章节/概念之间的关键连接，不要机械重复同一表达。" : "",
+        "- 只基于笔记，不要引入外部新知识。",
+        `- intent = ${key}；生成必须符合关注点：${focusTemplate}`,
+        highlights.length ? `- 这些是用户错题中高频关键词（尽量覆盖但不要生硬）：${highlights.join("、")}` : "",
+        feedbackGood.length ? `- 用户觉得“有用”的表达（尽量靠近这种风格）：${feedbackGood.slice(0, 2).join("；")}` : "",
+        feedbackBad.length ? `- 用户觉得“不通/无用”的表达（避免类似风格）：${feedbackBad.slice(0, 2).join("；")}` : "",
+        "- 如果无法确定，就输出最保守、最通用的版本，不要编造。",
+        "- 禁止出题：不要疑问句，不要出现“下列/哪项/正确的是/A./B.”等选项形式。",
+        "- A（核心概念）必须围绕同一概念成组输出：同一 concept 的定义/边界/必要条件/反例要彼此一致，反例必须违反边界或必要条件。",
+        "- D（知识联结）每条推理链必须逻辑连贯：prior、rule、derivation 要围绕同一核心术语展开。",
+        "",
+        "笔记：",
+        notesForPrompt
+      ].filter(Boolean).join("\n")
+    }
+  ];
+
+  const validator =
+    key === "B" ? validateNoteIntentB
+    : (key === "D" ? validateNoteIntentD : (key === "A" ? validateNoteIntentA : validateNoteIntentCString));
+
+  const runOnce = async (extraLines = []) => {
+    const user = messages.find(m => m.role === "user");
+    const baseContent = String(user?.content || "");
+    const content = extraLines.length ? `${baseContent}\n\n${extraLines.join("\n")}` : baseContent;
+    const msgs = messages.map(m => (m.role === "user" ? { ...m, content } : m));
+    return await chatJson({
+      session: null,
+      messages: msgs,
+      validator,
+      what: "note_intent_content",
+      apiKey,
+      model: modelName,
+      maxTokens: key === "A" ? 650 : 800
+    });
+  };
+
+  let data = await runOnce();
+
+  const postprocess = (d) => {
+    let items = [];
+    let warning = "";
+    if (!Array.isArray(d?.items)) return { items, warning };
+    if (key === "B") {
+      items = d.items
+        .map(x => ({
+          original: String(x?.original || "").trim(),
+          variant: String(x?.variant || "").trim(),
+          conclusion: String(x?.conclusion || "").trim()
+        }))
+        .filter(x => x.original.length >= 6 && x.variant.length >= 4 && x.conclusion.length >= 6)
+        .slice(0, 8);
+    } else if (key === "D") {
+      const overlapCount = (a, b) => {
+        let n = 0;
+        for (const t of a) if (b.has(t)) n += 1;
+        return n;
+      };
+      const tokens6 = (s) => {
+        const raw = String(s || "").match(/[\u4e00-\u9fff]{2,6}/g) || [];
+        const out = new Set();
+        for (const t of raw) {
+          const tok = String(t || "").trim();
+          if (!tok) continue;
+          if (logicStopSet.has(tok)) continue;
+          if (/^(.)\1+$/.test(tok)) continue;
+          out.add(tok);
+        }
+        return out;
+      };
+
+      const strict = d.items
+        .map(x => ({
+          prior: String(x?.prior || "").trim(),
+          rule: String(x?.rule || "").trim(),
+          derivation: String(x?.derivation || "").trim()
+        }))
+        .filter(x => x.prior.length >= 6 && x.rule.length >= 6 && x.derivation.length >= 6)
+        .filter(x => /(因此|所以|从而|进而|故)/.test(x.derivation))
+        .filter(x => {
+          const t1 = tokens6(x.prior);
+          const t2 = tokens6(x.rule);
+          const t3 = tokens6(x.derivation);
+          const o12 = overlapCount(t1, t2);
+          const o23 = overlapCount(t2, t3);
+          return o12 >= 1 && o23 >= 1;
+        })
+        .slice(0, 10);
+      if (strict.length >= 2) {
+        items = strict;
+      } else {
+        const relaxed = d.items
+          .map(x => ({
+            prior: String(x?.prior || "").trim(),
+            rule: String(x?.rule || "").trim(),
+            derivation: String(x?.derivation || "").trim()
+          }))
+          .filter(x => x.prior.length >= 6 && x.rule.length >= 6 && x.derivation.length >= 6)
+          .filter(x => {
+            const t1 = tokens6(x.prior);
+            const t2 = tokens6(x.rule);
+            const t3 = tokens6(x.derivation);
+            const o12 = overlapCount(t1, t2);
+            const o23 = overlapCount(t2, t3);
+            const o13 = overlapCount(t1, t3);
+            return o12 >= 1 || o23 >= 1 || o13 >= 1;
+          })
+          .slice(0, 12);
+        items = relaxed;
+        warning = items.length ? "推理链可能不完全连贯，可用“有用/不通”反馈校正" : "";
+      }
+      if (items.length === 0) {
+        warning = "知识联结提炼暂无可用结果，建议先多做几题后再试";
+      }
+    } else if (key === "A") {
+      items = d.items
+        .map(x => ({
+          concept: String(x?.concept || "").trim(),
+          definition: String(x?.definition || "").trim(),
+          boundary: String(x?.boundary || "").trim(),
+          necessary: String(x?.necessary || "").trim(),
+          counterexample: String(x?.counterexample || "").trim()
+        }))
+        .filter(x =>
+          x.concept.length >= 2 &&
+          x.definition.length >= 4 &&
+          x.boundary.length >= 4 &&
+          x.necessary.length >= 4 &&
+          x.counterexample.length >= 4
+        )
+        .slice(0, 5);
+
+      validateNoteIntentAorC(items);
+      if (items.length === 0) throw new Error("核心概念提炼无有效输出，请稍后重试");
+    } else if (key === "C") {
+      items = d.items
+        .map(x => ({
+          type: String(x?.type || "").trim(),
+          point: String(x?.point || "").trim(),
+          logic: String(x?.logic || "").trim(),
+          prevention: String(x?.prevention || "").trim()
+        }))
+        .filter(x => x.point.length >= 4 || x.logic.length >= 4 || x.prevention.length >= 4)
+        .slice(0, 10);
+    } else {
+      const raw = d.items
+        .map(s => String(s || "").trim())
+        .filter(Boolean);
+
+      const isQuestionLike = (s) => {
+        const t = String(s || "");
+        if (!t) return false;
+        if (/[？?]$/.test(t)) return true;
+        if (/(下列|以下|哪项|哪些|正确的是|选择题|单选|多选|判断题)/.test(t)) return true;
+        if (/\bA\./.test(t) || /\bB\./.test(t) || /\bC\./.test(t) || /\bD\./.test(t)) return true;
+        return false;
+      };
+
+      const filtered = raw.filter(s => !isQuestionLike(s));
+
+      items = filtered.slice(0, 12);
+    }
+    return { items, warning };
+  };
+
+  let items;
+  let warning = "";
+  try {
+    const out = postprocess(data);
+    items = out.items;
+    warning = out.warning || "";
+    if (key === "D" && items.length > 0 && items.length < 3) {
+      const more = await runOnce([
+        "补充要求：你上一版推理链数量太少。请补足到至少 4 条。",
+        "- 每条链围绕不同核心术语（2-6 个字名词短语）。",
+        "- prior 与 rule 必须共享该核心术语；derivation 必须显式推出结论。",
+        "- 不要把多条链写成一条长链。"
+      ]);
+      const out2 = postprocess(more);
+      if (Array.isArray(out2?.items) && out2.items.length) {
+        items = out2.items;
+        warning = out2.warning || warning;
+      }
+      if (items.length < 3 && !warning) warning = "仅提炼到少量推理链，可能笔记里的跨章连接点不多";
+    }
+  } catch (e) {
+    if (key === "A") {
+      data = await runOnce([
+        "补充要求（必须满足，否则输出无效）：",
+        "- 必须严格输出结构化 items：[{ concept, definition, boundary, necessary, counterexample }...]",
+        "- 至少输出 2 个 concept（除非笔记只够 1 个）。",
+        "- 每个 concept 的 4 个字段必须互相指向同一个概念，不得东拼西凑。",
+        "- 反例必须明确说明为何不满足边界或必要条件。"
+      ]);
+      const out = postprocess(data);
+      items = out.items;
+      warning = out.warning || "";
+    } else if (key === "D") {
+      data = await runOnce([
+        "补充要求（必须满足，否则输出无效）：",
+        "- 每条必须是严格三段链：prior(前置知识) → rule(本章规则) → derivation(推导结论)。",
+        "- 三段必须共享同一核心术语（同一个名词短语），不要换同义词，不要跳跃。",
+        "- derivation 必须以“因此/所以/从而/进而/故”之一开头并推出结论。",
+        "- items 请输出 4-8 条，不要只输出 1 条。",
+        "- 只输出 JSON，不要解释。"
+      ]);
+      const out = postprocess(data);
+      items = out.items;
+      warning = out.warning || "";
+    } else {
+      throw e;
+    }
+  }
+
+  return { items, highlights, warning };
 }
 
 function sanitizeOptionText(opt, idx) {
@@ -2805,11 +3037,9 @@ app.post("/api/wrong_mark", (req, res) => {
 
 app.post("/api/note_intent_status", (req, res) => {
   try {
-    const { intent, sessionIds } = req.body || {};
-    const key = String(intent || "").trim().toUpperCase();
-    if (!["A", "B", "C", "D"].includes(key)) return res.status(400).send("intent 仅支持 A/B/C/D。");
-    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).send("sessionIds 不能为空。");
+    const parsed = parseNoteIntentRequest(req.body);
+    if (parsed.error) return res.status(400).send(parsed.error);
+    const { intent: key, sessionIds: ids } = parsed;
 
     const cacheKey = buildNoteIntentKey(key, ids);
     const cached = noteIntentCache.get(cacheKey);
@@ -2855,11 +3085,10 @@ app.post("/api/note_intent_status", (req, res) => {
 
 app.post("/api/note_intent_content", (req, res) => {
   try {
-    const { intent, sessionIds, apiKey: apiKeyFromReq, model: modelFromReq } = req.body || {};
-    const key = String(intent || "").trim().toUpperCase();
-    if (!["A", "B", "C", "D"].includes(key)) return res.status(400).send("intent 仅支持 A/B/C/D。");
-    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).send("sessionIds 不能为空。");
+    const { apiKey: apiKeyFromReq, model: modelFromReq } = req.body || {};
+    const parsed = parseNoteIntentRequest(req.body);
+    if (parsed.error) return res.status(400).send(parsed.error);
+    const { intent: key, sessionIds: ids } = parsed;
 
     const cacheKey = buildNoteIntentKey(key, ids);
     const cached = noteIntentCache.get(cacheKey);
@@ -2917,344 +3146,39 @@ app.post("/api/note_intent_content", (req, res) => {
     }
 
     const startAt = Date.now();
-    setNoteIntentCacheEntry(cacheKey, { intent: key, pending: true, createdAt: startAt });
+    {
+      const existing = noteIntentCache.get(cacheKey) || {};
+      const createdAt = existing.createdAt || startAt;
+      setNoteIntentCacheEntry(cacheKey, { ...existing, intent: key, pending: true, createdAt });
+    }
 
     const job = (async () => {
       try {
-        const highlights = collectWrongHighlights(key, ids, 12);
-        const parts = [];
-        let apiKey = typeof apiKeyFromReq === "string" && apiKeyFromReq.trim().length >= 8 ? apiKeyFromReq.trim() : null;
-        let modelName = typeof modelFromReq === "string" && modelFromReq.trim().length > 0 ? modelFromReq.trim() : null;
-        for (const sid of ids) {
-          const s = sessionStore.get(sid);
-          if (!s) continue;
-          if (!apiKey && typeof s.apiKey === "string" && s.apiKey.trim().length >= 8) apiKey = s.apiKey.trim();
-          if (!modelName && s.model) modelName = s.model;
-          const title = s.chapterTitleOverride || s.chapterTitleDerived || s.lastPack?.meta?.chapter_title || "未命名章节";
-          const notes = String(s.notesRaw || s.notes || "").trim();
-          if (!notes) continue;
-          parts.push(`【${title}】\n${notes}`);
-        }
-        const combinedNotes = truncateNotesForModel(parts.join("\n\n"), 6500);
-        if (!apiKey) throw new Error("缺少有效的 API Key。请在前端输入并保存 Key 后再试。");
-        if (!modelName) modelName = "deepseek-chat";
-
-        const domainForLogic = detectDomainFromText(combinedNotes);
-        const logicStopSet = buildStopwordSet(domainForLogic);
-        const adaptiveForLogic = buildAdaptiveStopwordsFromNotes(combinedNotes, 10);
-        for (const w of adaptiveForLogic) logicStopSet.add(w);
-        const aStopSet = buildStopwordSet(domainForLogic);
-        for (const w of adaptiveForLogic) aStopSet.add(w);
-
-        const focusTemplate = {
-          A: "关注概念的“定义/边界/必要条件”，用反例检验边界。",
-          B: "关注条件变化：把“原条件 vs 变体条件”列成对照表，并给出结论。",
-          C: "关注题干陷阱：限定词/否定词/范围词/偷换概念，并给出排雷动作。",
-          D: "关注跨章连接：前置知识 + 本章规则如何拼接成推理链（推导结论）。"
-        }[key];
-
-        const schemaHint =
-          key === "B"
-            ? "输出 JSON：{ intent:'B', items:[{ original:'原条件', variant:'变体', conclusion:'结论' }, ...] }"
-            : (key === "D"
-              ? "输出 JSON：{ intent:'D', items:[{ prior:'前置知识', rule:'本章规则', derivation:'推导' }, ...] }"
-              : (key === "A"
-                ? "输出 JSON：{ intent:'A', items:[{ concept:'概念名', definition:'定义', boundary:'边界', necessary:'必要条件', counterexample:'反例' }, ...] }"
-                : "输出 JSON：{ intent:'C', items:[{ type:'陷阱类型', point:'要点', logic:'逻辑', prevention:'预防措施' }, ...] }"));
-
-        const existingFeedback = mergeNoteInsightFeedback(cacheKey, ids);
-        const feedbackGood = [];
-        const feedbackBad = [];
-        if (existingFeedback && typeof existingFeedback === "object") {
-          const cur = noteIntentCache.get(cacheKey);
-          const curItems = Array.isArray(cur?.items) ? cur.items : [];
-          const curKeys = curItems.map(it => noteItemKey(key, it));
-          for (let i = 0; i < curItems.length; i++) {
-            const ik = curKeys[i];
-            const v = existingFeedback[ik];
-            if (v === "useful") feedbackGood.push(formatNoteItemForPrompt(key, curItems[i]));
-            if (v === "bad") feedbackBad.push(formatNoteItemForPrompt(key, curItems[i]));
-          }
-        }
-
-        const notesForPrompt = (() => {
-          if (key === "A") {
-            const picked = [];
-            for (const h of highlights || []) {
-              const t = String(h || "").trim();
-              if (!t) continue;
-              if (t.length < 2 || t.length > 12) continue;
-              picked.push(t);
-              if (picked.length >= 4) break;
-            }
-            if (picked.length < 2) {
-              const tokens = extractCnKeywords2to4(combinedNotes, aStopSet);
-              const freq = new Map();
-              for (const t of tokens) freq.set(t, (freq.get(t) || 0) + 1);
-              const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
-              for (const t of top) if (!picked.includes(t)) picked.push(t);
-            }
-            const snippets = buildCoreConceptSnippets(combinedNotes, picked.slice(0, 4), 2600);
-            return snippets ? `（已抽取与核心概念最相关的笔记片段，减少无关内容）\n\n${snippets}` : combinedNotes;
-          }
-
-          if (key === "C") {
-            const picked = [];
-            for (const h of highlights || []) {
-              const t = String(h || "").trim();
-              if (!t) continue;
-              if (t.length < 1 || t.length > 16) continue;
-              picked.push(t);
-              if (picked.length >= 6) break;
-            }
-            const snippets = picked.length
-              ? buildCoreConceptSnippets(combinedNotes, picked.slice(0, 6), 2600)
-              : "";
-            return snippets
-              ? `（已抽取与当前错题相关的笔记片段，尽量忽略无关内容）\n\n${snippets}`
-              : combinedNotes;
-          }
-
-          return combinedNotes;
-        })();
-
-        const itemsCountLine =
-          key === "A" ? "- items 输出 3-5 条（每条是一个 concept 的成组信息）。"
-          : (key === "D" ? "- items 输出 4-8 条（每条一条推理链，尽量覆盖不同核心术语）。"
-            : "- items 输出 6-10 条；每个字段尽量短句（≤ 28 字）。");
-
-        const messages = [
-          { role: "system", content: "你只输出严格 JSON，不要 Markdown，不要多余解释。" },
-          {
-            role: "user",
-            content: [
-              "根据以下笔记，提炼学习要点。要求：",
-              `- ${schemaHint}`,
-              itemsCountLine,
-              "- B/C/D 的各字段必须是完整短句，不得只输出关键词。",
-              key === "C" ? "- C（陷阱识别）中每条 items 必须是通顺的完整中文句子，避免只罗列名词或碎片。" : "",
-              key === "C" ? "- C 的 point/logic/prevention 要用简短清晰的说明句，能直接指导下次避免同类陷阱。" : "",
-              key === "D" ? "- D（知识联结）优先覆盖不同章节/概念之间的关键连接，不要机械重复同一表达。" : "",
-              "- 只基于笔记，不要引入外部新知识。",
-              `- intent = ${key}；生成必须符合关注点：${focusTemplate}`,
-              highlights.length ? `- 这些是用户错题中高频关键词（尽量覆盖但不要生硬）：${highlights.join("、")}` : "",
-              feedbackGood.length ? `- 用户觉得“有用”的表达（尽量靠近这种风格）：${feedbackGood.slice(0, 2).join("；")}` : "",
-              feedbackBad.length ? `- 用户觉得“不通/无用”的表达（避免类似风格）：${feedbackBad.slice(0, 2).join("；")}` : "",
-              "- 如果无法确定，就输出最保守、最通用的版本，不要编造。",
-              "- 禁止出题：不要疑问句，不要出现“下列/哪项/正确的是/A./B.”等选项形式。",
-              "- A（核心概念）必须围绕同一概念成组输出：同一 concept 的定义/边界/必要条件/反例要彼此一致，反例必须违反边界或必要条件。",
-              "- A 输出必须是完整、严谨的短句：definition ≤ 40 字；boundary ≤ 45 字；necessary ≤ 45 字；counterexample ≤ 45 字。",
-              "- A 禁止使用“…”或省略号结尾，每句话必须有完整的句式和终点。",
-              "- A 建议句式：定义以“是/指/由于”开头；边界以“涉及/不涉及”开头；必要条件以“必须/需要”开头；反例以“X…因此不属于…”结尾。",
-              "- D（知识联结）每条推理链必须逻辑连贯：prior 与 rule 必须共享同一核心术语，derivation 必须明确用“因此/所以/从而/进而”等连接词推出结论。",
-              "- D 生成时：每条链都要有一个清晰的“核心术语”（2-6个字名词短语），不同链尽量用不同核心术语；不要把多条链合并成一条。",
-              "",
-              "笔记：",
-              notesForPrompt
-            ].filter(Boolean).join("\n")
-          }
-        ];
-
-        const validator =
-          key === "B" ? validateNoteIntentB
-          : (key === "D" ? validateNoteIntentD : (key === "A" ? validateNoteIntentA : validateNoteIntentCString));
-
-        const runOnce = async (extraLines = []) => {
-          const user = messages.find(m => m.role === "user");
-          const baseContent = String(user?.content || "");
-          const content = extraLines.length ? `${baseContent}\n\n${extraLines.join("\n")}` : baseContent;
-          const msgs = messages.map(m => (m.role === "user" ? { ...m, content } : m));
-          return await chatJson({
-            session: null,
-            messages: msgs,
-            validator,
-            what: "note_intent_content",
-            apiKey,
-            model: modelName,
-            maxTokens: key === "A" ? 850 : 1000
-          });
-        };
-
-        let data = await runOnce();
-
-        const postprocess = (d) => {
-          let items = [];
-          let warning = "";
-          if (!Array.isArray(d?.items)) return items;
-          if (key === "B") {
-            items = d.items
-              .map(x => ({
-                original: String(x?.original || "").trim(),
-                variant: String(x?.variant || "").trim(),
-                conclusion: String(x?.conclusion || "").trim()
-              }))
-              .filter(x => x.original.length >= 6 && x.variant.length >= 4 && x.conclusion.length >= 6)
-              .slice(0, 12);
-          } else if (key === "D") {
-            const overlapCount = (a, b) => {
-              let n = 0;
-              for (const t of a) if (b.has(t)) n += 1;
-              return n;
-            };
-            const tokens6 = (s) => {
-              const raw = String(s || "").match(/[\u4e00-\u9fff]{2,6}/g) || [];
-              const out = new Set();
-              for (const t of raw) {
-                const tok = String(t || "").trim();
-                if (!tok) continue;
-                if (logicStopSet.has(tok)) continue;
-                if (/^(.)\1+$/.test(tok)) continue;
-                out.add(tok);
-              }
-              return out;
-            };
-
-            const strict = d.items
-              .map(x => ({
-                prior: String(x?.prior || "").trim(),
-                rule: String(x?.rule || "").trim(),
-                derivation: String(x?.derivation || "").trim()
-              }))
-              .filter(x => x.prior.length >= 6 && x.rule.length >= 6 && x.derivation.length >= 6)
-              .filter(x => /(因此|所以|从而|进而|故)/.test(x.derivation))
-              .filter(x => {
-                const t1 = tokens6(x.prior);
-                const t2 = tokens6(x.rule);
-                const t3 = tokens6(x.derivation);
-                const o12 = overlapCount(t1, t2);
-                const o23 = overlapCount(t2, t3);
-                return o12 >= 1 && o23 >= 1;
-              })
-              .slice(0, 12);
-            if (strict.length >= 2) {
-              items = strict;
-            } else {
-              const relaxed = d.items
-                .map(x => ({
-                  prior: String(x?.prior || "").trim(),
-                  rule: String(x?.rule || "").trim(),
-                  derivation: String(x?.derivation || "").trim()
-                }))
-                .filter(x => x.prior.length >= 6 && x.rule.length >= 6 && x.derivation.length >= 6)
-                .filter(x => {
-                  const t1 = tokens6(x.prior);
-                  const t2 = tokens6(x.rule);
-                  const t3 = tokens6(x.derivation);
-                  const o12 = overlapCount(t1, t2);
-                  const o23 = overlapCount(t2, t3);
-                  const o13 = overlapCount(t1, t3);
-                  return o12 >= 1 || o23 >= 1 || o13 >= 1;
-                })
-                .slice(0, 12);
-              items = relaxed;
-              warning = items.length ? "推理链可能不完全连贯，可用“有用/不通”反馈校正" : "";
-            }
-            if (items.length === 0) {
-              warning = "知识联结提炼暂无可用结果，建议先多做几题后再试";
-            }
-          } else if (key === "A") {
-            items = d.items
-              .map(x => ({
-                concept: String(x?.concept || "").trim(),
-                definition: String(x?.definition || "").trim(),
-                boundary: String(x?.boundary || "").trim(),
-                necessary: String(x?.necessary || "").trim(),
-                counterexample: String(x?.counterexample || "").trim()
-              }))
-              .filter(x =>
-                x.concept.length >= 2 &&
-                x.definition.length >= 4 &&
-                x.boundary.length >= 4 &&
-                x.necessary.length >= 4 &&
-                x.counterexample.length >= 4
-              )
-              .slice(0, 5);
-
-            validateNoteIntentAorC(items);
-            if (items.length === 0) throw new Error("核心概念提炼无有效输出，请稍后重试");
-          } else if (key === "C") {
-            items = d.items
-              .map(x => ({
-                type: String(x?.type || "").trim(),
-                point: String(x?.point || "").trim(),
-                logic: String(x?.logic || "").trim(),
-                prevention: String(x?.prevention || "").trim()
-              }))
-              .filter(x => x.point.length >= 4 || x.logic.length >= 4 || x.prevention.length >= 4)
-              .slice(0, 12);
-          } else {
-            const raw = d.items
-              .map(s => String(s || "").trim())
-              .filter(Boolean);
-
-            const isQuestionLike = (s) => {
-              const t = String(s || "");
-              if (!t) return false;
-              if (/[？?]$/.test(t)) return true;
-              if (/(下列|以下|哪项|哪些|正确的是|选择题|单选|多选|判断题)/.test(t)) return true;
-              if (/\bA\./.test(t) || /\bB\./.test(t) || /\bC\./.test(t) || /\bD\./.test(t)) return true;
-              return false;
-            };
-
-            const filtered = raw.filter(s => !isQuestionLike(s));
-
-            items = filtered.slice(0, 12);
-          }
-          return { items, warning };
-        };
-
-        let items;
-        let warning = "";
-        try {
-          const out = postprocess(data);
-          items = out.items;
-          warning = out.warning || "";
-          if (key === "D" && items.length > 0 && items.length < 3) {
-            const more = await runOnce([
-              "补充要求：你上一版推理链数量太少。请补足到至少 4 条。",
-              "- 每条链围绕不同核心术语（2-6 个字名词短语）。",
-              "- prior 与 rule 必须共享该核心术语；derivation 必须显式推出结论。",
-              "- 不要把多条链写成一条长链。"
-            ]);
-            const out2 = postprocess(more);
-            if (Array.isArray(out2?.items) && out2.items.length) {
-              items = out2.items;
-              warning = out2.warning || warning;
-            }
-            if (items.length < 3 && !warning) warning = "仅提炼到少量推理链，可能笔记里的跨章连接点不多";
-          }
-        } catch (e) {
-          if (key === "A") {
-            data = await runOnce([
-              "补充要求（必须满足，否则输出无效）：",
-              "- 必须严格输出结构化 items：[{ concept, definition, boundary, necessary, counterexample }...]",
-              "- 至少输出 2 个 concept（除非笔记只够 1 个）。",
-              "- 每个 concept 的 4 个字段必须互相指向同一个概念，不得东拼西凑。",
-              "- 反例必须明确说明为何不满足边界或必要条件。"
-            ]);
-            const out = postprocess(data);
-            items = out.items;
-            warning = out.warning || "";
-          } else if (key === "D") {
-            data = await runOnce([
-              "补充要求（必须满足，否则输出无效）：",
-              "- 每条必须是严格三段链：prior(前置知识) → rule(本章规则) → derivation(推导结论)。",
-              "- 三段必须共享同一核心术语（同一个名词短语），不要换同义词，不要跳跃。",
-              "- derivation 必须以“因此/所以/从而/进而/故”之一开头并推出结论。",
-              "- items 请输出 4-8 条，不要只输出 1 条。",
-              "- 只输出 JSON，不要解释。"
-            ]);
-            const out = postprocess(data);
-            items = out.items;
-            warning = out.warning || "";
-          } else {
-            throw e;
-          }
-        }
-
-        setNoteIntentCacheEntry(cacheKey, { intent: key, items, createdAt: Date.now(), highlights, durationMs: Date.now() - startAt, warning });
+        const result = await computeNoteIntentContent({ key, ids, cacheKey, apiKeyFromReq, modelFromReq });
+        const existing = noteIntentCache.get(cacheKey) || {};
+        const createdAt = existing.createdAt || Date.now();
+        setNoteIntentCacheEntry(cacheKey, {
+          ...existing,
+          intent: key,
+          items: result.items,
+          createdAt,
+          highlights: result.highlights,
+          durationMs: Date.now() - startAt,
+          warning: result.warning,
+          pending: false
+        });
       } catch (e) {
-        setNoteIntentCacheEntry(cacheKey, { intent: key, items: [], createdAt: Date.now(), highlights: [], error: e?.message || String(e) });
+        const existing = noteIntentCache.get(cacheKey) || {};
+        const createdAt = existing.createdAt || Date.now();
+        setNoteIntentCacheEntry(cacheKey, {
+          ...existing,
+          intent: key,
+          items: [],
+          createdAt,
+          highlights: [],
+          error: e?.message || String(e),
+          pending: false
+        });
       }
     })();
 
@@ -3266,7 +3190,9 @@ app.post("/api/note_intent_content", (req, res) => {
       .catch((e) => {
         const existed = noteIntentCache.get(cacheKey);
         if (!existed || existed.pending) {
-          setNoteIntentCacheEntry(cacheKey, { intent: key, pending: true, createdAt: existed?.createdAt || Date.now() });
+          const base = existed || {};
+          const createdAt = base.createdAt || Date.now();
+          setNoteIntentCacheEntry(cacheKey, { ...base, intent: key, pending: true, createdAt });
         }
       })
       .finally(() => noteIntentJobs.delete(cacheKey));
@@ -3280,11 +3206,10 @@ app.post("/api/note_intent_content", (req, res) => {
 
 app.post("/api/note_intent_feedback", (req, res) => {
   try {
-    const { intent, sessionIds, cacheKey: cacheKeyFromReq, itemKey, value } = req.body || {};
-    const key = String(intent || "").trim().toUpperCase();
-    if (!["A", "B", "C", "D"].includes(key)) return res.status(400).send("intent 仅支持 A/B/C/D。");
-    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
-    if (ids.length === 0) return res.status(400).send("sessionIds 不能为空。");
+    const { cacheKey: cacheKeyFromReq, itemKey, value } = req.body || {};
+    const parsed = parseNoteIntentRequest(req.body);
+    if (parsed.error) return res.status(400).send(parsed.error);
+    const { intent: key, sessionIds: ids } = parsed;
     const ck = String(cacheKeyFromReq || "").trim() || buildNoteIntentKey(key, ids);
     const ik = String(itemKey || "").trim();
     const v = String(value || "").trim();
@@ -3306,7 +3231,236 @@ app.post("/api/note_intent_feedback", (req, res) => {
     return res.status(500).send(e?.message || String(e));
   }
 });
- 
+
+app.post("/api/note_intent_explain_stream", async (req, res) => {
+  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const writeLine = (obj) => {
+    try {
+      res.write(JSON.stringify(obj) + "\n");
+    } catch {}
+  };
+
+  try {
+    const parsed = parseNoteIntentRequest(req.body);
+    if (parsed.error) {
+      writeLine({ type: "error", message: parsed.error });
+      return res.end();
+    }
+    const { intent: key, sessionIds: ids } = parsed;
+    const { apiKey: apiKeyFromReq, model: modelFromReq } = req.body || {};
+
+    const cacheKey = buildNoteIntentKey(key, ids);
+    const cached = noteIntentCache.get(cacheKey);
+    if (cached && typeof cached.explanation === "string" && cached.explanation.trim()) {
+      const text = cached.explanation.trim();
+      writeLine({ type: "final", text });
+      return res.end();
+    }
+
+    const highlights = collectWrongHighlights(key, ids, sessionStore, stopwordConfig, 12);
+    const parts = [];
+    let apiKey = typeof apiKeyFromReq === "string" && apiKeyFromReq.trim().length >= 8 ? apiKeyFromReq.trim() : null;
+    let modelName = typeof modelFromReq === "string" && modelFromReq.trim().length > 0 ? modelFromReq.trim() : null;
+    for (const sid of ids) {
+      const s = sessionStore.get(sid);
+      if (!s) continue;
+      if (!apiKey && typeof s.apiKey === "string" && s.apiKey.trim().length >= 8) apiKey = s.apiKey.trim();
+      if (!modelName && s.model) modelName = s.model;
+      const title = s.chapterTitleOverride || s.chapterTitleDerived || s.lastPack?.meta?.chapter_title || "未命名章节";
+      const notes = String(s.notesRaw || s.notes || "").trim();
+      if (!notes) continue;
+      parts.push(`【${title}】\n${notes}`);
+    }
+    const combinedNotes = truncateNotesForModel(parts.join("\n\n"), 6500);
+    if (!apiKey) {
+      writeLine({ type: "error", message: "缺少有效的 API Key。请在前端输入并保存 Key 后再试。" });
+      return res.end();
+    }
+    if (!modelName) modelName = "deepseek-chat";
+
+    const domainForLogic = detectDomainFromText(combinedNotes, stopwordConfig);
+    const aStopSet = buildStopwordSet(domainForLogic, stopwordConfig);
+    const adaptive = buildAdaptiveStopwordsFromNotes(combinedNotes, 10);
+    for (const w of adaptive) aStopSet.add(w);
+
+    let focus = "";
+    if (key === "A") {
+      focus = "核心概念";
+    } else if (key === "B") {
+      focus = "变体区分";
+    } else if (key === "C") {
+      focus = "陷阱识别";
+    } else if (key === "D") {
+      focus = "知识联结";
+    }
+
+    const tokens = extractCnKeywords2to4(combinedNotes, aStopSet);
+    const freq = new Map();
+    for (const t of tokens) freq.set(t, (freq.get(t) || 0) + 1);
+    const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
+
+    const lines = [];
+    lines.push(`你是学习教练，正在帮用户做「${focus || "笔记提炼"}」的自然语言解释。`);
+    lines.push("目标：用口语化、分点说明的方式，解释当前章节里最值得复盘的知识点。");
+    lines.push("请直接输出中文解释，不要输出 JSON，不要使用 Markdown 列表语法，只用普通换行。");
+    if (focus) {
+      lines.push(`本次关注方向：${focus}。`);
+    }
+    if (highlights && highlights.length) {
+      lines.push(`这些是用户错题中出现过的高频词，请优先围绕这些点解释但不要生硬堆砌：${highlights.join("、")}`);
+    }
+    if (top.length) {
+      lines.push(`从笔记里额外检测到的高频关键词：${top.join("、")}`);
+    }
+    lines.push("输出建议结构：");
+    lines.push("1）先用 2-3 句话总结这一块整体在讲什么。");
+    lines.push("2）分点说明：哪几类知识点最容易错，各举 1-2 个典型例子。");
+    lines.push("3）给出 2-3 条可执行的复盘建议，比如“下次做题先检查哪些词”“怎么在笔记里加一行自查规则”。");
+
+    writeLine({ type: "stage", value: "正在生成解释性笔记提炼…" });
+
+    let buf = "";
+    let lastFlush = Date.now();
+    const flush = (force = false) => {
+      const now = Date.now();
+      if (!force && buf.length < 60 && now - lastFlush < 120) return;
+      if (buf) writeLine({ type: "delta", text: buf });
+      buf = "";
+      lastFlush = now;
+    };
+
+    const notesForModel = combinedNotes;
+    const prompt = `${lines.join("\n")}\n\n笔记内容：\n${notesForModel}`;
+
+    const text = await chatTextStream({
+      messages: [
+        { role: "system", content: "你是学习教练，回答时只输出中文解释文字，不要包含 JSON 或列表标记。" },
+        { role: "user", content: prompt }
+      ],
+      what: "note_intent_explain",
+      apiKey,
+      model: modelName,
+      onDelta: (t) => {
+        buf += String(t || "");
+        flush(false);
+      },
+      maxTokens: 700
+    });
+
+    try {
+      const existing = noteIntentCache.get(cacheKey) || {};
+      const createdAt = existing.createdAt || Date.now();
+      setNoteIntentCacheEntry(cacheKey, {
+        ...existing,
+        intent: key,
+        createdAt,
+        explanation: text,
+        explanationCreatedAt: Date.now()
+      });
+    } catch {}
+
+    flush(true);
+    writeLine({ type: "final", text });
+    return res.end();
+  } catch (e) {
+    writeLine({ type: "error", message: String(e?.message || e) });
+    return res.end();
+  }
+});
+
+app.post("/api/note_intent_quick", (req, res) => {
+  try {
+    const parsed = parseNoteIntentRequest(req.body);
+    if (parsed.error) return res.status(400).send(parsed.error);
+    const { intent: key, sessionIds: ids } = parsed;
+    const summaries = [];
+    for (const sid of ids) {
+      const s = sessionStore.get(sid);
+      if (!s) continue;
+      const ext = s.lastPack && s.lastPack.extracted ? s.lastPack.extracted : {};
+      if (key === "A" && Array.isArray(ext.core_concepts)) {
+        const list = ext.core_concepts.map(v => String(v || "").trim()).filter(Boolean).slice(0, 4);
+        if (list.length) summaries.push(`核心概念：${list.join("；")}`);
+      } else if (key === "B") {
+        const grading = s.lastGrading;
+        const quiz = s.lastGradedQuiz;
+        if (grading && quiz) {
+          const byId = new Map((grading.results || []).map(r => [r.id, r]));
+          const concepts = [];
+          const examples = [];
+          for (const q of quiz.questions || []) {
+            if (String(q.intent || "").toUpperCase() !== "B") continue;
+            const r = byId.get(q.id);
+            if (!r || r.correct) continue;
+            const concept = String(q.concept || "").trim();
+            if (concept && !concepts.includes(concept)) concepts.push(concept);
+            if (examples.length < 2) {
+              const stem = String(q.stem || "").trim();
+              if (stem) examples.push(stem.slice(0, 80));
+            }
+          }
+          if (concepts.length || examples.length) {
+            const parts = [];
+            if (concepts.length) parts.push(`变体对照表优先复盘：${concepts.join("；")}`);
+            if (examples.length) parts.push(`典型错题示例：${examples.join(" / ")}`);
+            parts.push("建议先把“原条件 vs 变体条件”写成对照表，再对照解析找出结论是否仍成立。");
+            summaries.push(parts.join("\n"));
+          }
+        }
+      } else if (key === "C" || key === "D") {
+        const entries = s.weaknesses && typeof s.weaknesses === "object" ? Object.entries(s.weaknesses) : [];
+        const sorted = entries.slice().sort((a, b) => (b[1].wrong || 0) - (a[1].wrong || 0));
+        const topConcepts = [];
+        for (const [k, v] of sorted) {
+          if (!v || !v.wrong) continue;
+          const name = String(k || "").split("｜")[0].trim();
+          if (!name) continue;
+          if (!topConcepts.includes(name)) topConcepts.push(name);
+          if (topConcepts.length >= 4) break;
+        }
+        const coaching = s.lastGrading && s.lastGrading.coaching ? s.lastGrading.coaching : null;
+        const topWeak = Array.isArray(coaching?.topWeaknesses) ? coaching.topWeaknesses.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : [];
+        const nextFocus = coaching && coaching.nextFocus ? String(coaching.nextFocus || "").trim() : "";
+        const lines = [];
+        if (topConcepts.length) {
+          if (key === "C") {
+            lines.push(`历史错题高频概念：${topConcepts.join("；")}`);
+          } else {
+            lines.push(`历史错题关键板块：${topConcepts.join("；")}`);
+          }
+        }
+        if (topWeak.length) {
+          if (key === "C") {
+            lines.push(`系统分析易错点：${topWeak.join("；")}`);
+          } else {
+            lines.push(`系统分析联结点：${topWeak.join("；")}`);
+          }
+        }
+        if (nextFocus) {
+          lines.push(`下一步重点：${nextFocus}`);
+        }
+        if (lines.length) {
+          summaries.push(lines.join(" "));
+        } else if (key === "C" && Array.isArray(ext.likely_misconceptions)) {
+          const list = ext.likely_misconceptions.map(v => String(v || "").trim()).filter(Boolean).slice(0, 4);
+          if (list.length) summaries.push(`易错点：${list.join("；")}`);
+        } else if (key === "D" && Array.isArray(ext.prior_links)) {
+          const list = ext.prior_links.map(v => String(v || "").trim()).filter(Boolean).slice(0, 4);
+          if (list.length) summaries.push(`知识联结：${list.join("；")}`);
+        }
+      }
+    }
+    const summary = Array.from(new Set(summaries.filter(Boolean))).join("\n");
+    return res.json({ intent: key, summary });
+  } catch (e) {
+    return res.status(500).send(e?.message || String(e));
+  }
+});
+
  app.post("/api/sync_history", (req, res) => {
    const { sessionId, results, quiz } = req.body || {};
    const session = sessionStore.get(sessionId);
@@ -3335,7 +3489,54 @@ app.post("/api/note_intent_feedback", (req, res) => {
    
    sessionStore.set(sessionId, session);
    safeWriteSessions();
- 
+
+   try {
+     const key = "C";
+     const ids = [String(sessionId)];
+     const cacheKey = buildNoteIntentKey(key, ids);
+     if (!noteIntentJobs.has(cacheKey)) {
+       const existing = noteIntentCache.get(cacheKey);
+       if (!existing || (!existing.items && !existing.pending)) {
+         const startAt = Date.now();
+         setNoteIntentCacheEntry(cacheKey, { intent: key, pending: true, createdAt: startAt });
+         const job = (async () => {
+           try {
+             const result = await computeNoteIntentContent({ key, ids, cacheKey, apiKeyFromReq: null, modelFromReq: null });
+             setNoteIntentCacheEntry(cacheKey, {
+               intent: key,
+               items: result.items,
+               createdAt: Date.now(),
+               highlights: result.highlights,
+               durationMs: Date.now() - startAt,
+               warning: result.warning
+             });
+           } catch (e) {
+             setNoteIntentCacheEntry(cacheKey, {
+               intent: key,
+               items: [],
+               createdAt: Date.now(),
+               highlights: [],
+               error: e?.message || String(e)
+             });
+           }
+         })();
+         const timeoutMs = 65000;
+         const timedJob = Promise.race([
+           job,
+           new Promise((_, reject) => setTimeout(() => reject(new Error("note_intent_content prewarm timeout")), timeoutMs))
+         ])
+           .catch((e) => {
+             const existed = noteIntentCache.get(cacheKey);
+             if (!existed || existed.pending) {
+               setNoteIntentCacheEntry(cacheKey, { intent: key, pending: true, createdAt: existed?.createdAt || Date.now() });
+             }
+           })
+           .finally(() => noteIntentJobs.delete(cacheKey));
+         noteIntentJobs.set(cacheKey, timedJob);
+       }
+     }
+   } catch {}
+
    res.json({ ok: true });
  });
  

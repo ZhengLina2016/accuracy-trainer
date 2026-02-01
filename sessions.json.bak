@@ -652,7 +652,7 @@
     "chapterTitleDerived": "Whether it's a vacation or a",
     "chapterTitleOverride": "",
     "wrongMarks": {},
-    "round": 2,
+    "round": 4,
     "difficultyState": {
       "level": 0
     },
@@ -814,10 +814,309 @@
           }
         ],
         "syncedAt": "2026-01-31T15:15:36.550Z"
+      },
+      {
+        "round": 2,
+        "accuracy": 0,
+        "total": 1,
+        "correct": 0,
+        "quiz": {
+          "meta": {
+            "subject": "未知科目",
+            "chapter_title": "Whether it's a vacation or a",
+            "version_hash": "v1",
+            "created_at": "2026-02-01T05:10:54.803Z",
+            "timebox_minutes": 15
+          },
+          "extracted": {
+            "core_concepts": [
+              "Cats form strong emotional bonds with humans based on trust, security, and familiarity.",
+              "Cats have episodic memory and can recall specific moments, including positive or stressful experiences.",
+              "Cats' sense of smell helps them recognize their owners even after long absences.",
+              "Cats may show distant or 'sulky' behavior upon return due to routine changes, which is normal and indicates stress or anxiety.",
+              "Maintaining routine and a calm environment before leaving and after returning helps reduce cat stress."
+            ],
+            "core_claims": [],
+            "likely_misconceptions": [],
+            "prior_links": []
+          },
+          "questions": [
+            {
+              "id": "q_0",
+              "type": "single",
+              "intent": "A",
+              "stem": "According to the notes, what is a key factor that helps cats remember their owners after a long absence?",
+              "options": [
+                "Their ability to sleep for long hours",
+                "Their episodic memory and sense of smell",
+                "Their independent nature",
+                "Their preference for solitude"
+              ],
+              "concept": "通用",
+              "rationale": "The notes state that cats have episodic memory, allowing them to recall specific moments, and their exceptional sense of smell helps detect their owner's scent. This combination enables recognition even after prolonged separation, contrary to the misconception of forgetfulness.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "exact",
+                "value": "B"
+              }
+            },
+            {
+              "id": "q_1",
+              "type": "multi",
+              "intent": "B",
+              "stem": "Which of the following behaviors might a cat exhibit upon an owner's return, as described in the notes?",
+              "options": [
+                "Acting distant or 'sulky'",
+                "Showing immediate affection",
+                "Vomiting or urinating due to stress",
+                "Forgetting the owner entirely"
+              ],
+              "concept": "通用",
+              "rationale": "The notes mention that cats may seem distant or sulky upon return, which is normal due to routine changes. Signs like vomiting or urinating indicate stress or anxiety related to the absence, not necessarily anger or forgetfulness.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "set",
+                "value": [
+                  "A",
+                  "C"
+                ]
+              }
+            },
+            {
+              "id": "q_2",
+              "type": "tf",
+              "intent": "C",
+              "stem": "True or False: Cats perceive the length of their owner's absence in the same way as humans do, according to feline behaviorist Hugues Martinat.",
+              "options": [
+                "正确",
+                "错误"
+              ],
+              "concept": "通用",
+              "rationale": "Hugues Martinat explains that although cats have a notion of the length of absence, it is not perceived in the same way as humans. This highlights a common misconception about feline time perception.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "exact",
+                "value": "F"
+              }
+            },
+            {
+              "id": "q_3",
+              "type": "short",
+              "intent": "D",
+              "stem": "What is recommended to make a cat's absence and return easier, based on the notes?",
+              "options": [],
+              "concept": "通用",
+              "rationale": "The notes suggest maintaining a calm and reassuring attitude before leaving, avoiding over-affection, and keeping routines consistent (e.g., mealtimes, playtimes). This helps reduce stress and supports the cat's well-being during changes.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "keywords",
+                "value": [
+                  "maintain routine",
+                  "calm attitude",
+                  "consistent mealtimes",
+                  "playtimes",
+                  "resttimes"
+                ]
+              }
+            }
+          ],
+          "scoring": {
+            "objective_rules": "每题 1 分",
+            "short_rules": {}
+          },
+          "stop_rules": {
+            "stable_if": {
+              "A_pass": true,
+              "B_pass": true,
+              "min_questions": 3
+            },
+            "unstable_if": {
+              "A_fail_count": 2,
+              "min_questions": 2
+            },
+            "messages": {
+              "stable": "Great job! You've mastered the core concepts about cats and absence. Keep practicing to reinforce your understanding.",
+              "unstable": "You missed some key points. Review the notes on emotional bonds and memory to improve.",
+              "invalid": "Invalid response detected. Please answer based on the provided notes only."
+            }
+          },
+          "ui_hints": {
+            "render_mode": "one_by_one",
+            "hide_total_count": true
+          }
+        },
+        "results": [
+          {
+            "id": "q_0",
+            "isCorrect": true,
+            "userAns": "B",
+            "correctAns": "B",
+            "rationale": "The notes state that cats have episodic memory, allowing them to recall specific moments, and their exceptional sense of smell helps detect their owner's scent. This combination enables recognition even after prolonged separation, contrary to the misconception of forgetfulness."
+          }
+        ],
+        "syncedAt": "2026-02-01T05:11:13.169Z"
+      },
+      {
+        "round": 3,
+        "accuracy": 0,
+        "total": 4,
+        "correct": 0,
+        "quiz": {
+          "meta": {
+            "subject": "未知科目",
+            "chapter_title": "Whether it's a vacation or a",
+            "version_hash": "v1",
+            "created_at": "2026-02-01T06:28:17.278Z",
+            "timebox_minutes": 15
+          },
+          "extracted": {
+            "core_concepts": [
+              "Cats form strong emotional bonds with humans based on trust, security, and familiarity",
+              "Cats have episodic memory and can recall specific shared experiences (e.g., play, feeding, cuddling)",
+              "A cat's sense of smell is highly developed and plays a key role in recognizing owners after long absences",
+              "Cats perceive time differently — they notice absence but not in human-like temporal terms",
+              "Post-absence 'sulking' is a normal reaction due to routine disruption, not indifference or forgetting"
+            ],
+            "core_claims": [],
+            "likely_misconceptions": [],
+            "prior_links": []
+          },
+          "questions": [
+            {
+              "id": "q_0",
+              "type": "single",
+              "intent": "A",
+              "stem": "According to the text, what is the primary basis for the emotional bond between cats and their humans?",
+              "options": [
+                "Shared feeding schedules and consistent treats",
+                "Trust, security, and familiarity",
+                "Genetic predisposition to attachment",
+                "Frequent physical restraint and handling"
+              ],
+              "concept": "通用",
+              "rationale": "The text explicitly states that feline-human bonds are built on trust, security, and familiarity. Other options are unsupported: feeding schedules support routine but aren't the bond's foundation; genetics and restraint aren't mentioned.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "exact",
+                "value": "B"
+              }
+            },
+            {
+              "id": "q_1",
+              "type": "single",
+              "intent": "B",
+              "stem": "Which of the following best reflects how cats perceive the duration of their owner's absence, according to Hugues Martinat?",
+              "options": [
+                "They track days precisely using internal clocks",
+                "They notice the absence but don't process it in human-like time units",
+                "They assume the owner has left permanently if gone more than 48 hours",
+                "They measure absence by changes in light cycles only"
+              ],
+              "concept": "通用",
+              "rationale": "Martinat states cats 'have a notion of the length of your absence' but 'it is not perceived in the same way as you.' Options A, C, and D overstate or misrepresent the text's claim about feline time perception.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "exact",
+                "value": "B"
+              }
+            },
+            {
+              "id": "q_2",
+              "type": "single",
+              "intent": "C",
+              "stem": "A cat vomits and urinates outside the litter box shortly after its owner returns from a two-week trip. What does the text indicate this behavior most likely signals?",
+              "options": [
+                "Permanent rejection of the owner",
+                "medical emergency requiring immediate vet care",
+                "Stress or anxiety related to routine disruption",
+                "An attempt to mark territory against the owner"
+              ],
+              "concept": "通用",
+              "rationale": "The text directly links vomiting and inappropriate urination to stress or anxiety caused by routine change — both during absence and upon return. It does not suggest permanent rejection, urgent illness, or territorial marking as explanations.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "exact",
+                "value": "C"
+              }
+            },
+            {
+              "id": "q_3",
+              "type": "tf",
+              "intent": "D",
+              "stem": "True or false: The text states that a cat's ability to recognize its owner after weeks away relies primarily on visual recognition.",
+              "options": [
+                "正确",
+                "错误"
+              ],
+              "concept": "通用",
+              "rationale": "The text emphasizes scent — not vision — as the key recognition tool, citing cats' 'exceptional sense of smell' and ability to detect the owner's scent immediately. Visual recognition is never mentioned as primary.",
+              "difficulty": 1,
+              "answer": {
+                "kind": "exact",
+                "value": "F"
+              }
+            }
+          ],
+          "scoring": {
+            "objective_rules": "每题 1 分",
+            "short_rules": {}
+          },
+          "stop_rules": {
+            "stable_if": {
+              "A_pass": true,
+              "B_pass": true,
+              "min_questions": 3
+            },
+            "unstable_if": {
+              "A_fail_count": 2,
+              "min_questions": 2
+            },
+            "messages": {
+              "stable": "You've demonstrated solid understanding of core concepts about feline memory, bonding, and absence response.",
+              "unstable": "One or more foundational ideas need review — revisit how cats form bonds and perceive time.",
+              "invalid": "Invalid response format detected. Please follow instructions carefully."
+            }
+          },
+          "ui_hints": {
+            "render_mode": "one_by_one",
+            "hide_total_count": true
+          }
+        },
+        "results": [
+          {
+            "id": "q_0",
+            "isCorrect": true,
+            "userAns": "B",
+            "correctAns": "B",
+            "rationale": "The text explicitly states that feline-human bonds are built on trust, security, and familiarity. Other options are unsupported: feeding schedules support routine but aren't the bond's foundation; genetics and restraint aren't mentioned."
+          },
+          {
+            "id": "q_1",
+            "isCorrect": true,
+            "userAns": "B",
+            "correctAns": "B",
+            "rationale": "Martinat states cats 'have a notion of the length of your absence' but 'it is not perceived in the same way as you.' Options A, C, and D overstate or misrepresent the text's claim about feline time perception."
+          },
+          {
+            "id": "q_2",
+            "isCorrect": true,
+            "userAns": "C",
+            "correctAns": "C",
+            "rationale": "The text directly links vomiting and inappropriate urination to stress or anxiety caused by routine change — both during absence and upon return. It does not suggest permanent rejection, urgent illness, or territorial marking as explanations."
+          },
+          {
+            "id": "q_3",
+            "isCorrect": false,
+            "userAns": "T",
+            "correctAns": "F",
+            "rationale": "The text emphasizes scent — not vision — as the key recognition tool, citing cats' 'exceptional sense of smell' and ability to detect the owner's scent immediately. Visual recognition is never mentioned as primary."
+          }
+        ],
+        "syncedAt": "2026-02-01T06:29:53.364Z"
       }
     ],
     "totals": {
-      "answered": 4,
+      "answered": 9,
       "correct": 0
     },
     "weaknesses": {},
@@ -827,15 +1126,15 @@
           "id": "q_0",
           "type": "single",
           "intent": "A",
-          "stem": "According to the text, what is the primary basis for the emotional bond between cats and their owners?",
+          "stem": "According to the text, what is the primary basis for the emotional bond between cats and their humans?",
           "options": [
             "Shared feeding schedules and consistent treats",
             "Trust, security, and familiarity",
             "Genetic predisposition to attachment",
-            "Frequent physical contact like daily brushing"
+            "Frequent physical restraint and handling"
           ],
           "concept": "通用",
-          "rationale": "The text explicitly states that feline-human bonds are built on 'trust, security, and familiarity.' Other options—while potentially supportive—are not identified as the foundational basis. This reflects the core conceptual claim.",
+          "rationale": "The text explicitly states that feline-human bonds are built on trust, security, and familiarity. Other options are unsupported: feeding schedules support routine but aren't the bond's foundation; genetics and restraint aren't mentioned.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -846,34 +1145,34 @@
           "id": "q_1",
           "type": "single",
           "intent": "B",
-          "stem": "Which of the following best explains why a cat might seem 'sulky' upon its owner's return after a trip?",
+          "stem": "Which of the following best reflects how cats perceive the duration of their owner's absence, according to Hugues Martinat?",
           "options": [
-            "It has formed a stronger bond with the pet sitter",
-            "It is punishing the owner for leaving",
-            "Its established coping routine has been disrupted",
-            "It no longer recognizes the owner's scent"
+            "They track days precisely using internal clocks",
+            "They notice the absence but don't process it in human-like time units",
+            "They assume the owner has left permanently if gone more than 48 hours",
+            "They measure absence by changes in light cycles only"
           ],
           "concept": "通用",
-          "rationale": "The text states that 'your return may disrupt this recently established routine,' causing temporary distance. This is framed as habitual adjustment—not anger, forgetting, or preference shift. Option C directly matches the behavioral explanation given.",
+          "rationale": "Martinat states cats 'have a notion of the length of your absence' but 'it is not perceived in the same way as you.' Options A, C, and D overstate or misrepresent the text's claim about feline time perception.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
-            "value": "C"
+            "value": "B"
           }
         },
         {
           "id": "q_2",
           "type": "single",
           "intent": "C",
-          "stem": "Which statement reflects a common misconception debunked in the text?",
+          "stem": "A cat vomits and urinates outside the litter box shortly after its owner returns from a two-week trip. What does the text indicate this behavior most likely signals?",
           "options": [
-            "Cats sleep 15–17 hours per day",
-            "Cats use scent to identify familiar people",
-            "Cats forget owners after several weeks away",
-            "Cats respond better to calm departures than over-affectionate ones"
+            "Permanent rejection of the owner",
+            "medical emergency requiring immediate vet care",
+            "Stress or anxiety related to routine disruption",
+            "An attempt to mark territory against the owner"
           ],
           "concept": "通用",
-          "rationale": "The text explicitly refutes the idea that cats forget owners, citing episodic memory, scent recognition, and expert affirmation. Options A, B, and D are all presented as facts—not misconceptions—making C the only correct choice for a debunked myth.",
+          "rationale": "The text directly links vomiting and inappropriate urination to stress or anxiety caused by routine change — both during absence and upon return. It does not suggest permanent rejection, urgent illness, or territorial marking as explanations.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -884,13 +1183,13 @@
           "id": "q_3",
           "type": "tf",
           "intent": "D",
-          "stem": "True or false: According to Hugues Martinat, cats perceive the duration of their owner's absence in the same way humans do.",
+          "stem": "True or false: The text states that a cat's ability to recognize its owner after weeks away relies primarily on visual recognition.",
           "options": [
             "正确",
             "错误"
           ],
           "concept": "通用",
-          "rationale": "The text quotes Martinat saying cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' This directly contradicts the statement. So the correct answer is '错误' (i.e., F).",
+          "rationale": "The text emphasizes scent — not vision — as the key recognition tool, citing cats' 'exceptional sense of smell' and ability to detect the owner's scent immediately. Visual recognition is never mentioned as primary.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -903,7 +1202,7 @@
     "lastGradedQuiz": null,
     "lastReviewText": "",
     "createdAt": "2026-01-31T15:14:48.017Z",
-    "lastActive": 1769872488018,
+    "lastActive": 1769927280821,
     "seen": [],
     "seenStems": [],
     "lastStems": [],
@@ -913,16 +1212,16 @@
         "subject": "未知科目",
         "chapter_title": "Whether it's a vacation or a",
         "version_hash": "v1",
-        "created_at": "2026-01-31T15:15:04.317Z",
+        "created_at": "2026-02-01T06:28:17.278Z",
         "timebox_minutes": 15
       },
       "extracted": {
         "core_concepts": [
           "Cats form strong emotional bonds with humans based on trust, security, and familiarity",
-          "Cats have episodic memory and can recall specific shared experiences",
-          "A cat's sense of smell plays a key role in recognizing owners after long absences",
-          "Cats perceive time differently — they notice absence but not in human terms",
-          "Post-absence 'sulking' is a normal reaction to routine disruption, not indifference"
+          "Cats have episodic memory and can recall specific shared experiences (e.g., play, feeding, cuddling)",
+          "A cat's sense of smell is highly developed and plays a key role in recognizing owners after long absences",
+          "Cats perceive time differently — they notice absence but not in human-like temporal terms",
+          "Post-absence 'sulking' is a normal reaction due to routine disruption, not indifference or forgetting"
         ],
         "core_claims": [],
         "likely_misconceptions": [],
@@ -933,15 +1232,15 @@
           "id": "q_0",
           "type": "single",
           "intent": "A",
-          "stem": "According to the text, what is the primary basis for the emotional bond between cats and their owners?",
+          "stem": "According to the text, what is the primary basis for the emotional bond between cats and their humans?",
           "options": [
             "Shared feeding schedules and consistent treats",
             "Trust, security, and familiarity",
             "Genetic predisposition to attachment",
-            "Frequent physical contact like daily brushing"
+            "Frequent physical restraint and handling"
           ],
           "concept": "通用",
-          "rationale": "The text explicitly states that feline-human bonds are built on 'trust, security, and familiarity.' Other options—while potentially supportive—are not identified as the foundational basis. This reflects the core conceptual claim.",
+          "rationale": "The text explicitly states that feline-human bonds are built on trust, security, and familiarity. Other options are unsupported: feeding schedules support routine but aren't the bond's foundation; genetics and restraint aren't mentioned.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -952,34 +1251,34 @@
           "id": "q_1",
           "type": "single",
           "intent": "B",
-          "stem": "Which of the following best explains why a cat might seem 'sulky' upon its owner's return after a trip?",
+          "stem": "Which of the following best reflects how cats perceive the duration of their owner's absence, according to Hugues Martinat?",
           "options": [
-            "It has formed a stronger bond with the pet sitter",
-            "It is punishing the owner for leaving",
-            "Its established coping routine has been disrupted",
-            "It no longer recognizes the owner's scent"
+            "They track days precisely using internal clocks",
+            "They notice the absence but don't process it in human-like time units",
+            "They assume the owner has left permanently if gone more than 48 hours",
+            "They measure absence by changes in light cycles only"
           ],
           "concept": "通用",
-          "rationale": "The text states that 'your return may disrupt this recently established routine,' causing temporary distance. This is framed as habitual adjustment—not anger, forgetting, or preference shift. Option C directly matches the behavioral explanation given.",
+          "rationale": "Martinat states cats 'have a notion of the length of your absence' but 'it is not perceived in the same way as you.' Options A, C, and D overstate or misrepresent the text's claim about feline time perception.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
-            "value": "C"
+            "value": "B"
           }
         },
         {
           "id": "q_2",
           "type": "single",
           "intent": "C",
-          "stem": "Which statement reflects a common misconception debunked in the text?",
+          "stem": "A cat vomits and urinates outside the litter box shortly after its owner returns from a two-week trip. What does the text indicate this behavior most likely signals?",
           "options": [
-            "Cats sleep 15–17 hours per day",
-            "Cats use scent to identify familiar people",
-            "Cats forget owners after several weeks away",
-            "Cats respond better to calm departures than over-affectionate ones"
+            "Permanent rejection of the owner",
+            "medical emergency requiring immediate vet care",
+            "Stress or anxiety related to routine disruption",
+            "An attempt to mark territory against the owner"
           ],
           "concept": "通用",
-          "rationale": "The text explicitly refutes the idea that cats forget owners, citing episodic memory, scent recognition, and expert affirmation. Options A, B, and D are all presented as facts—not misconceptions—making C the only correct choice for a debunked myth.",
+          "rationale": "The text directly links vomiting and inappropriate urination to stress or anxiety caused by routine change — both during absence and upon return. It does not suggest permanent rejection, urgent illness, or territorial marking as explanations.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -990,13 +1289,13 @@
           "id": "q_3",
           "type": "tf",
           "intent": "D",
-          "stem": "True or false: According to Hugues Martinat, cats perceive the duration of their owner's absence in the same way humans do.",
+          "stem": "True or false: The text states that a cat's ability to recognize its owner after weeks away relies primarily on visual recognition.",
           "options": [
             "正确",
             "错误"
           ],
           "concept": "通用",
-          "rationale": "The text quotes Martinat saying cats 'have a notion of the length of your absence, but it is not perceived in the same way as you.' This directly contradicts the statement. So the correct answer is '错误' (i.e., F).",
+          "rationale": "The text emphasizes scent — not vision — as the key recognition tool, citing cats' 'exceptional sense of smell' and ability to detect the owner's scent immediately. Visual recognition is never mentioned as primary.",
           "difficulty": 1,
           "answer": {
             "kind": "exact",
@@ -1019,8 +1318,8 @@
           "min_questions": 2
         },
         "messages": {
-          "stable": "You've demonstrated solid understanding of core concepts and their application.",
-          "unstable": "One or more core ideas need reinforcement — review the notes on bonding, memory, and behavioral responses.",
+          "stable": "You've demonstrated solid understanding of core concepts about feline memory, bonding, and absence response.",
+          "unstable": "One or more foundational ideas need review — revisit how cats form bonds and perceive time.",
           "invalid": "Invalid response format detected. Please follow instructions carefully."
         }
       },

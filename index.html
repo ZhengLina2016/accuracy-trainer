@@ -400,8 +400,8 @@
   <!-- Setup View -->
   <div id="setupView" class="fade-in">
     <div style="margin-bottom: 30px; padding: 0 10px;">
-      <h2 style="font-size: 24px; margin-bottom: 8px;">课后即时诊断</h2>
-      <p class="text-sm">无需配置，只用于检查刚学完的内容是否稳定。</p>
+      <h2 style="font-size: 24px; margin-bottom: 8px;">课后即时</h2>
+      <p class="text-sm">只用于检查刚学完的内容是否稳定</p>
     </div>
 
     <div class="card">
@@ -409,9 +409,10 @@
         <label class="text-sm" style="font-weight: 600; margin-bottom: 6px; display: block;">学习内容</label>
         <textarea id="notesInput" rows="6" placeholder="粘贴刚才学完的章节内容、笔记或要点..."></textarea>
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <button id="pasteBtn" class="ghost" style="width: auto; padding: 8px 0; font-size: 13px;">+ 粘贴剪贴板文本/图片</button>
+            <button id="pasteBtn" class="ghost" style="width: auto; padding: 8px 0; font-size: 13px;">+ 上传图片</button>
             <span id="charCount" class="text-xs">0 字</span>
         </div>
+        <input id="imageUploadInput" type="file" accept="image/*" style="display:none;" />
       </div>
       
       <div id="modelSection" style="margin-bottom: 16px;">
@@ -456,8 +457,8 @@
         <h2 id="wrongDetailTitle" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;">错题详情</h2>
       </div>
     </div>
-    <div id="wrongToolbar" style="margin-bottom: 14px;"></div>
     <div id="wrongWeaknessSummary" style="margin-bottom: 14px; display:none;"></div>
+    <div id="wrongToolbar" style="margin-bottom: 14px;"></div>
     <div id="wrongList" style="display: flex; flex-direction: column; gap: 16px;">
       <!-- Wrong questions injected here -->
     </div>
@@ -665,31 +666,19 @@ const app = {
     };
     $('#notesInput').oninput = (e) => $('#charCount').textContent = `${e.target.value.length} 字`;
     
-    $('#pasteBtn').onclick = async () => {
-      try {
-        // 先尝试读取剪贴板图片
-        try {
-          const items = await navigator.clipboard.read();
-          for (const item of items) {
-            if (item.types.some(t => t.startsWith('image/'))) {
-              const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
-              await this.handleImageUpload(blob);
-              return;
-            }
-          }
-        } catch (e) {
-          // 忽略图片读取错误（可能不支持或无图片），继续尝试文本
-        }
-
-        const text = await navigator.clipboard.readText();
-        if(text) {
-          const el = $('#notesInput');
-          el.value = (el.value + "\n" + text).trim();
-          $('#charCount').textContent = `${el.value.length} 字`;
-        }
-      } catch(e) {
-        this.toast('请手动粘贴 (Ctrl+V)');
-      }
+    const uploadInput = $('#imageUploadInput');
+    if (uploadInput) {
+      uploadInput.onchange = async (e) => {
+        const files = e.target.files || [];
+        const file = files[0];
+        if (!file) return;
+        await this.handleImageUpload(file);
+        uploadInput.value = '';
+      };
+    }
+    $('#pasteBtn').onclick = () => {
+      const input = $('#imageUploadInput');
+      if (input) input.click();
     };
     
     // Bind Drag & Drop / Paste for Image Compression
@@ -860,6 +849,21 @@ const app = {
     return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   },
 
+  getApiBase() {
+    return location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
+  },
+
+  async apiPost(path, body) {
+    const base = this.getApiBase();
+    const res = await fetch(base + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
   applyHighlights(escapedText, highlights) {
     let out = String(escapedText || "");
     const hsRaw = Array.isArray(highlights) ? highlights : [];
@@ -889,7 +893,20 @@ const app = {
     if (!["A", "B", "C", "D"].includes(key)) return;
     const ids = Array.from(new Set((Array.isArray(list) ? list : []).map(x => x?.sourceSessionId).filter(Boolean)));
     if (ids.length === 0) return;
-    this.noteInsight = { status: 'loading', intent: key, items: [], highlights: [], error: '' };
+    const prev = this.noteInsight && this.noteInsight.intent === key ? this.noteInsight : {};
+    this.noteInsight = {
+      intent: key,
+      status: 'loading',
+      items: [],
+      itemKeys: [],
+      feedback: {},
+      cacheKey: '',
+      warning: '',
+      statusInfo: prev.statusInfo || null,
+      meta: null,
+      error: '',
+      quickSummary: prev.quickSummary || ''
+    };
     this.renderTwoMinutePanel();
 
     const model = this.getCurrentModel();
@@ -900,17 +917,23 @@ const app = {
       return;
     }
     const payload = { intent: key, sessionIds: ids, apiKey, model };
+
+    try {
+      const quick = await this.apiPost("/api/note_intent_quick", { intent: key, sessionIds: ids });
+      const summary = quick && typeof quick.summary === "string" ? quick.summary.trim() : "";
+      if (summary) {
+        const existing = String(this.noteInsight && this.noteInsight.quickSummary || "").trim();
+        const combined = existing && summary && existing !== summary
+          ? `${existing}\n\n—— 基于历史错题的提示 ——\n${summary}`
+          : (summary || existing);
+        this.noteInsight.quickSummary = combined;
+        this.renderTwoMinutePanel();
+      }
+    } catch {}
     const startedAt = Date.now();
     while (Date.now() - startedAt < 90000) {
       try {
-        const base = location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
-        const res = await fetch(base + "/api/note_intent_content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
+        const data = await this.apiPost("/api/note_intent_content", payload);
         if (data.status === "ready") {
           this.noteInsight = {
             status: "ready",
@@ -945,20 +968,58 @@ const app = {
     this.renderTwoMinutePanel();
   },
 
+  async streamNoteInsightExplanation(intentKey, sessionIds, apiKey, model) {
+    const key = String(intentKey || "").trim().toUpperCase();
+    const ids = Array.isArray(sessionIds) ? sessionIds.map(String).filter(Boolean) : [];
+    if (!["A", "B", "C", "D"].includes(key)) return;
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch(this.getApiBase() + "/api/note_intent_explain_stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: key, sessionIds: ids, apiKey, model })
+      });
+      if (!res.ok || !res.body) return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let fullText = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n");
+        buffer = parts.pop() || "";
+        for (const line of parts) {
+          const s = line.trim();
+          if (!s) continue;
+          let evt;
+          try { evt = JSON.parse(s); } catch { continue; }
+          if (evt.type === "delta") {
+            const t = String(evt.text || "");
+            fullText += t;
+            if (!this.noteInsight || this.noteInsight.intent !== key) continue;
+            this.noteInsight.quickSummary = fullText;
+            this.renderTwoMinutePanel();
+          } else if (evt.type === "final") {
+            const t = String(evt.text || "");
+            if (t) fullText = t;
+            if (!this.noteInsight || this.noteInsight.intent !== key) continue;
+            this.noteInsight.quickSummary = fullText;
+            this.renderTwoMinutePanel();
+          }
+        }
+      }
+    } catch {}
+  },
+
   async loadNoteInsightStatus(intentKey, list) {
     const key = String(intentKey || "").trim().toUpperCase();
     if (!["A", "B", "C", "D"].includes(key)) return;
     const ids = Array.from(new Set((Array.isArray(list) ? list : []).map(x => x?.sourceSessionId).filter(Boolean)));
     if (ids.length === 0) return;
     try {
-      const base = location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
-      const res = await fetch(base + "/api/note_intent_status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent: key, sessionIds: ids })
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await this.apiPost("/api/note_intent_status", { intent: key, sessionIds: ids });
       if (!this.noteInsight || this.noteInsight.intent !== key) return;
       this.noteInsight.statusInfo = {
         status: String(data.status || ''),
@@ -979,13 +1040,7 @@ const app = {
     if (ids.length === 0) return;
     const ck = String(this.noteInsight?.cacheKey || '');
     try {
-      const base = location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
-      const res = await fetch(base + "/api/note_intent_feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent, sessionIds: ids, cacheKey: ck, itemKey, value })
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await this.apiPost("/api/note_intent_feedback", { intent, sessionIds: ids, cacheKey: ck, itemKey, value });
       if (this.noteInsight && this.noteInsight.feedback) {
         this.noteInsight.feedback[itemKey] = value;
       }
@@ -1104,6 +1159,15 @@ const app = {
     let noteHtml = '';
     if (this.wrongDetailMode === 'weakness' && intent) {
       const ni = this.noteInsight || {};
+      const explain = String(ni.quickSummary || "").trim();
+      const explainBlock = explain
+        ? `
+          <div class="text-sm" style="color:#0f172a; margin-top:6px; padding:10px; border-radius:10px; border:1px dashed #e2e8f0; background:#f8fafc;">
+            <div style="font-weight:600; margin-bottom:4px; color:#64748b;">解释性文字（基于错题与笔记）：</div>
+            <div style="white-space:pre-wrap;">${this.escapeHtml(explain)}</div>
+          </div>
+        `
+        : '';
       if (ni.intent !== intent) {
         noteHtml = `<div class="text-sm" style="color:#64748b; margin-top:10px;">笔记提炼：未生成</div>`;
       } else if (ni.status === 'idle') {
@@ -1117,12 +1181,16 @@ const app = {
         noteHtml = `
           <div class="text-sm" style="color:#64748b; margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <span>笔记提炼：未生成</span>
-            <button id="genNoteInsightBtn" class="toolbar-btn" style="width:auto;">生成</button>
+            <button id="genNoteInsightBtn" class="toolbar-btn" style="width:auto;">生成结构化卡片</button>
             <span style="color:#94a3b8;">${this.escapeHtml(hint)}</span>
           </div>
+          ${explainBlock}
         `;
       } else if (ni.status === 'loading') {
-        noteHtml = `<div class="text-sm" style="color:#64748b; margin-top:10px;">笔记提炼：生成中…</div>`;
+        noteHtml = `
+          <div class="text-sm" style="color:#64748b; margin-top:10px;">笔记提炼：生成中…</div>
+          ${explainBlock}
+        `;
       } else if (ni.status === 'error') {
         noteHtml = `<div class="text-sm" style="color:#ef4444; margin-top:10px;">笔记提炼失败：${this.escapeHtml(ni.error || '')}</div>`;
       } else if (ni.status === 'ready') {
@@ -1287,9 +1355,11 @@ const app = {
                 : (items.length ? `<ul style="margin:0; padding-left:18px;">${items.map((it, i) => `<li style="margin-bottom:6px;">${this.escapeHtml(it)}${fbBtns(i)}</li>`).join('')}</ul>` : `<div style="color:#64748b;">暂无内容</div>`))));
 
         noteHtml = `
+          ${explainBlock}
           <details style="margin-top:12px; padding-top:12px; border-top:1px dashed #e2e8f0;" open>
-            <summary class="text-sm" style="font-weight:700; color:#0f172a; cursor:pointer;">笔记提炼（点击折叠/展开）</summary>
-            <div class="text-sm" style="color:#0f172a; line-height:1.8; margin-top:10px;">
+            <summary class="text-sm" style="font-weight:700; color:#0f172a; cursor:pointer;">结构化卡片（点击折叠/展开）</summary>
+            <div class="text-xs" style="color:#94a3b8; margin-top:6px;">上面是解释性总结，下面是结构化卡片，可以用“有用/不通”帮模型调参。</div>
+            <div class="text-sm" style="color:#0f172a; line-height:1.8; margin-top:8px;">
               ${warn ? `<div class="text-xs" style="color:#f59e0b; margin-bottom:8px;">${this.escapeHtml(warn)}</div>` : ``}
               ${contentHtml}
             </div>
@@ -1933,7 +2003,7 @@ const app = {
     const renameBtn = $('#renameChapterBtn');
     if (renameBtn) renameBtn.style.display = 'none';
 
-    this.noteInsight = { status: 'idle', intent: key, items: [], itemKeys: [], feedback: {}, cacheKey: '', statusInfo: null, meta: null, error: '' };
+    this.noteInsight = { status: 'idle', intent: key, items: [], itemKeys: [], feedback: {}, cacheKey: '', statusInfo: null, meta: null, error: '', quickSummary: '' };
     this.renderTwoMinutePanel();
     this.loadNoteInsightStatus(key, list);
 
@@ -1942,6 +2012,12 @@ const app = {
     this.renderWrongQuestionsFiltered();
     this.bindWrongScroll();
     this.restoreWrongScroll();
+    const model = this.getCurrentModel();
+    const apiKey = (this.getStoredKey(model) || $('#apiKeyInput')?.value || '').trim();
+    if (apiKey && apiKey.length >= 10) {
+      const ids = Array.from(new Set(list.map(x => x?.sourceSessionId).filter(Boolean)));
+      if (ids.length > 0) this.streamNoteInsightExplanation(key, ids, apiKey, model);
+    }
    },
 
    showWrongDetail(groupIdx, opts = {}) {
