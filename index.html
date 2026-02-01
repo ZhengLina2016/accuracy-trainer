@@ -850,7 +850,7 @@ const app = {
   },
 
   getApiBase() {
-    return location.origin.includes(':8787') ? '' : 'http://127.0.0.1:8787';
+    return '';
   },
 
   async apiPost(path, body) {
